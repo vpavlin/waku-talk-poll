@@ -30,6 +30,8 @@ export class WakuService {
   private isHealthy: boolean = false;
   private messageListeners: Set<(message: WakuMessage) => void> = new Set();
   private healthListeners: Set<(isHealthy: boolean) => void> = new Set();
+  private processedMessageIds: Set<string> = new Set(); // Track processed messages for deduplication
+  private readonly MAX_PROCESSED_IDS = 1000; // Prevent memory leak
 
   constructor(senderId: string) {
     this.senderId = senderId;
@@ -92,6 +94,27 @@ export class WakuService {
     this.channel.addEventListener('message-received', (event: any) => {
       try {
         const wakuMessage = event.detail;
+        
+        // Generate a unique message ID from the Waku message
+        // Use message hash if available, otherwise create from timestamp + payload
+        const messageId = this.getMessageId(wakuMessage);
+        
+        // Check for duplicates
+        if (this.processedMessageIds.has(messageId)) {
+          console.log('[Waku] Duplicate message detected, skipping:', messageId.substring(0, 8));
+          return;
+        }
+        
+        // Mark as processed
+        this.processedMessageIds.add(messageId);
+        
+        // Prevent memory leak - keep only recent message IDs
+        if (this.processedMessageIds.size > this.MAX_PROCESSED_IDS) {
+          const idsArray = Array.from(this.processedMessageIds);
+          const toRemove = idsArray.slice(0, this.processedMessageIds.size - this.MAX_PROCESSED_IDS);
+          toRemove.forEach(id => this.processedMessageIds.delete(id));
+        }
+        
         const decoded = DataPacket.decode(wakuMessage.payload) as any;
         
         const message: WakuMessage = {
@@ -101,7 +124,7 @@ export class WakuService {
           payload: JSON.parse(decoded.payload as string)
         };
         
-        console.log('[Waku] Message received:', message.type, 'from:', message.senderId);
+        console.log('[Waku] Message received (ID:', messageId.substring(0, 8), '):', message.type, 'from:', message.senderId);
         
         // Notify all listeners
         this.messageListeners.forEach(listener => listener(message));
@@ -185,6 +208,35 @@ export class WakuService {
   }
 
   /**
+   * Generate a unique message ID from a Waku message
+   * Uses message hash if available, otherwise creates from content
+   */
+  private getMessageId(wakuMessage: any): string {
+    // Try to use Waku's message hash/ID if available
+    if (wakuMessage.messageHash) {
+      return wakuMessage.messageHash;
+    }
+    if (wakuMessage.hash) {
+      return wakuMessage.hash;
+    }
+    
+    // Fallback: create ID from timestamp and payload hash
+    // This ensures duplicate content is detected even without Waku hash
+    const timestamp = wakuMessage.timestamp || Date.now();
+    const payloadStr = new TextDecoder().decode(wakuMessage.payload);
+    
+    // Simple hash function for payload
+    let hash = 0;
+    for (let i = 0; i < payloadStr.length; i++) {
+      const char = payloadStr.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    return `${timestamp}_${hash}`;
+  }
+
+  /**
    * Cleanup resources
    */
   async stop(): Promise<void> {
@@ -194,6 +246,7 @@ export class WakuService {
     }
     this.messageListeners.clear();
     this.healthListeners.clear();
+    this.processedMessageIds.clear();
   }
 }
 
