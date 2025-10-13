@@ -10,6 +10,7 @@ export function useWaku(instanceId: string | null) {
   const [isConnected, setIsConnected] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
   const wakuServiceRef = useRef<WakuService | null>(null);
   const senderIdRef = useRef<string>(generateSenderId());
 
@@ -20,10 +21,12 @@ export function useWaku(instanceId: string | null) {
     const initWaku = async () => {
       try {
         setIsInitializing(true);
+        setIsReady(false);
         setError(null);
 
         // Create Waku service if not already created
         if (!wakuServiceRef.current) {
+          console.log('[useWaku] Creating new Waku service');
           wakuServiceRef.current = new WakuService(senderIdRef.current);
           
           // Setup health listener
@@ -31,8 +34,12 @@ export function useWaku(instanceId: string | null) {
         }
 
         // Initialize and join channel
+        console.log('[useWaku] Initializing and joining channel:', instanceId);
         await wakuServiceRef.current.initialize();
         await wakuServiceRef.current.joinChannel(instanceId);
+        
+        console.log('[useWaku] Channel ready, listeners can now be registered');
+        setIsReady(true);
 
       } catch (err) {
         console.error('[useWaku] Error initializing:', err);
@@ -50,6 +57,7 @@ export function useWaku(instanceId: string | null) {
         wakuServiceRef.current.stop();
         wakuServiceRef.current = null;
       }
+      setIsReady(false);
     };
   }, [instanceId]);
 
@@ -61,17 +69,22 @@ export function useWaku(instanceId: string | null) {
     return wakuServiceRef.current.sendMessage(message);
   }, []);
 
-  // Subscribe to messages
+  // Subscribe to messages - only works after isReady is true
   const onMessage = useCallback((listener: (message: WakuMessage) => void) => {
+    console.log('[useWaku] Registering message listener, ready:', isReady);
     if (!wakuServiceRef.current) {
+      console.warn('[useWaku] Cannot register listener - service not initialized');
       return () => {};
     }
-    return wakuServiceRef.current.onMessage(listener);
-  }, []);
+    const unsubscribe = wakuServiceRef.current.onMessage(listener);
+    console.log('[useWaku] Listener registered successfully');
+    return unsubscribe;
+  }, [isReady]);
 
   return {
     isConnected,
     isInitializing,
+    isReady,
     error,
     sendMessage,
     onMessage,

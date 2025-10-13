@@ -25,12 +25,16 @@ export default function Attendee() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [submittedAnswers, setSubmittedAnswers] = useState<Set<string>>(new Set());
   
-  const { isConnected, isInitializing, error, sendMessage, onMessage, senderId } = useWaku(instanceId || null);
+  const { isConnected, isInitializing, isReady, error, sendMessage, onMessage, senderId } = useWaku(instanceId || null);
 
-  // Listen for question updates
+  // Listen for question updates - only after Waku is ready
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isReady) {
+      console.log('[Attendee] Waiting for Waku to be ready...');
+      return;
+    }
 
+    console.log('[Attendee] Setting up message listener');
     const unsubscribe = onMessage((message) => {
       console.log('[Attendee] Processing message:', message.type, message.payload);
       
@@ -71,7 +75,7 @@ export default function Attendee() {
     });
 
     return unsubscribe;
-  }, [isConnected, onMessage]);
+  }, [isReady, onMessage]);
 
   // Debug log for questions
   useEffect(() => {
