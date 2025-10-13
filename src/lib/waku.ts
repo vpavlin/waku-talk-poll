@@ -212,12 +212,24 @@ export class WakuService {
    * Uses message hash if available, otherwise creates from content
    */
   private getMessageId(wakuMessage: any): string {
-    // Try to use Waku's message hash/ID if available
-    if (wakuMessage.messageHash) {
-      return wakuMessage.messageHash;
-    }
+    // Convert Uint8Array hash to hex string
+    const toHexString = (bytes: Uint8Array): string => {
+      return Array.from(bytes)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    };
+    
+    // Try to use Waku's hash property (usually Uint8Array)
     if (wakuMessage.hash) {
-      return wakuMessage.hash;
+      if (wakuMessage.hash instanceof Uint8Array) {
+        return toHexString(wakuMessage.hash);
+      }
+      return String(wakuMessage.hash);
+    }
+    
+    // Try hashStr if available
+    if (wakuMessage.hashStr) {
+      return String(wakuMessage.hashStr);
     }
     
     // Fallback: create ID from timestamp and payload hash
