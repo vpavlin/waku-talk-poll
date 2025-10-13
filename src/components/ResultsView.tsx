@@ -30,6 +30,7 @@ export function ResultsView({ questions, answers }: ResultsViewProps) {
     return text
       .toLowerCase()
       .trim()
+      .replace(/[.,!?;:'"]+/g, '') // Remove punctuation
       .replace(/\s+/g, ' '); // Replace multiple spaces with single space
   };
 
