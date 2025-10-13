@@ -32,17 +32,30 @@ export default function Attendee() {
     if (!isConnected) return;
 
     const unsubscribe = onMessage((message) => {
+      console.log('[Attendee] Processing message:', message.type, message.payload);
+      
       switch (message.type) {
         case MessageType.QUESTION_ADDED:
-          setQuestions(prev => [...prev, message.payload.question]);
+          setQuestions(prev => {
+            // Avoid duplicates
+            if (prev.some(q => q.id === message.payload.question.id)) {
+              console.log('[Attendee] Question already exists:', message.payload.question.id);
+              return prev;
+            }
+            console.log('[Attendee] Adding question:', message.payload.question);
+            return [...prev, message.payload.question];
+          });
           break;
         
         case MessageType.QUESTION_ACTIVATED:
-          setQuestions(prev =>
-            prev.map(q =>
+          setQuestions(prev => {
+            const updated = prev.map(q =>
               q.id === message.payload.questionId ? { ...q, active: true } : q
-            )
-          );
+            );
+            console.log('[Attendee] Question activated:', message.payload.questionId);
+            console.log('[Attendee] Updated questions:', updated);
+            return updated;
+          });
           toast.info('New question activated!');
           break;
         
@@ -52,12 +65,19 @@ export default function Attendee() {
               q.id === message.payload.questionId ? { ...q, active: false } : q
             )
           );
+          console.log('[Attendee] Question deactivated:', message.payload.questionId);
           break;
       }
     });
 
     return unsubscribe;
   }, [isConnected, onMessage]);
+
+  // Debug log for questions
+  useEffect(() => {
+    console.log('[Attendee] All questions:', questions);
+    console.log('[Attendee] Active questions:', questions.filter(q => q.active));
+  }, [questions]);
 
   const handleSubmitAnswer = async (questionId: string, answerText: string) => {
     const answer: Answer = {
