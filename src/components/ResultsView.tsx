@@ -25,20 +25,43 @@ export function ResultsView({ questions, answers }: ResultsViewProps) {
     return answers.filter(a => a.questionId === selectedQuestion.id);
   }, [selectedQuestion, answers]);
 
-  // Generate frequency data for pie chart
-  const frequencyData = useMemo(() => {
-    const frequency = new Map<string, number>();
+  // Normalize answer text for grouping
+  const normalizeAnswer = (text: string): string => {
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' '); // Replace multiple spaces with single space
+  };
+
+  // Generate grouped answers with frequency for list view
+  const groupedAnswers = useMemo(() => {
+    const frequency = new Map<string, { text: string; count: number; firstTimestamp: number }>();
     
     questionAnswers.forEach(answer => {
-      const normalized = answer.text.toLowerCase().trim();
-      frequency.set(normalized, (frequency.get(normalized) || 0) + 1);
+      const normalized = normalizeAnswer(answer.text);
+      const existing = frequency.get(normalized);
+      
+      if (existing) {
+        existing.count += 1;
+      } else {
+        frequency.set(normalized, {
+          text: answer.text, // Keep original for display
+          count: 1,
+          firstTimestamp: answer.timestamp
+        });
+      }
     });
 
-    return Array.from(frequency.entries())
-      .map(([text, count]) => ({ text, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10); // Top 10 answers
+    return Array.from(frequency.values())
+      .sort((a, b) => b.count - a.count);
   }, [questionAnswers]);
+
+  // Generate frequency data for pie chart
+  const frequencyData = useMemo(() => {
+    return groupedAnswers
+      .map(({ text, count }) => ({ text: normalizeAnswer(text), count }))
+      .slice(0, 10); // Top 10 answers
+  }, [groupedAnswers]);
 
   // Colors for pie chart
   const COLORS = [
@@ -134,26 +157,33 @@ export function ResultsView({ questions, answers }: ResultsViewProps) {
           <TabsContent value="list">
             <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle>All Answers</CardTitle>
+                <CardTitle>Grouped Answers</CardTitle>
                 <CardDescription>
                   {questionAnswers.length} answer{questionAnswers.length !== 1 ? 's' : ''} received
+                  {groupedAnswers.length !== questionAnswers.length && 
+                    ` • ${groupedAnswers.length} unique`}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {questionAnswers.length === 0 ? (
+                {groupedAnswers.length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">
                     No answers yet.
                   </p>
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {questionAnswers.map((answer) => (
+                    {groupedAnswers.map((group, index) => (
                       <div
-                        key={answer.id}
+                        key={`${normalizeAnswer(group.text)}-${index}`}
                         className="p-3 border rounded-lg bg-card hover:bg-accent/5 transition-colors"
                       >
-                        <p className="font-medium">{answer.text}</p>
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="font-medium flex-1">{group.text}</p>
+                          <Badge variant="secondary" className="shrink-0">
+                            {group.count}×
+                          </Badge>
+                        </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(answer.timestamp).toLocaleTimeString()}
+                          First received: {new Date(group.firstTimestamp).toLocaleTimeString()}
                         </p>
                       </div>
                     ))}
