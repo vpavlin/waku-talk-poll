@@ -21,6 +21,7 @@ import { useWaku } from '@/hooks/useWaku';
 import { MessageType, type Question, type Answer } from '@/types/waku';
 import { Copy, Check, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { saveInstance, saveQuestions, saveAnswers, getQuestions, getAnswers, getInstance } from '@/lib/storage';
 
 export default function Admin() {
   const { instanceId } = useParams<{ instanceId: string }>();
@@ -28,8 +29,57 @@ export default function Admin() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [copied, setCopied] = useState(false);
+  const [instanceName, setInstanceName] = useState('');
   
   const { isConnected, isInitializing, error, sendMessage, onMessage } = useWaku(instanceId || null);
+
+  // Load persisted data on mount
+  useEffect(() => {
+    if (!instanceId) return;
+
+    console.log('[Admin] Loading persisted data for instance:', instanceId);
+    
+    // Load instance info
+    const instance = getInstance(instanceId);
+    if (instance) {
+      setInstanceName(instance.name);
+      setQuestions(instance.questions);
+    } else {
+      // Load questions separately if instance doesn't exist
+      const persistedQuestions = getQuestions(instanceId);
+      setQuestions(persistedQuestions);
+    }
+
+    // Load answers
+    const persistedAnswers = getAnswers(instanceId);
+    setAnswers(persistedAnswers);
+
+    console.log('[Admin] Loaded questions:', questions.length, 'answers:', answers.length);
+  }, [instanceId]);
+
+  // Auto-save questions whenever they change
+  useEffect(() => {
+    if (!instanceId || questions.length === 0) return;
+    
+    console.log('[Admin] Auto-saving questions:', questions.length);
+    saveQuestions(instanceId, questions);
+    
+    // Update instance with latest questions
+    saveInstance({
+      id: instanceId,
+      name: instanceName || `Instance ${instanceId}`,
+      questions,
+      createdAt: Date.now()
+    });
+  }, [instanceId, questions, instanceName]);
+
+  // Auto-save answers whenever they change
+  useEffect(() => {
+    if (!instanceId || answers.length === 0) return;
+    
+    console.log('[Admin] Auto-saving answers:', answers.length);
+    saveAnswers(instanceId, answers);
+  }, [instanceId, answers]);
 
   // Listen for incoming answers
   useEffect(() => {

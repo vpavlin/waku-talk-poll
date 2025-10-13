@@ -4,22 +4,40 @@
  * Allows users to select their role (Admin or Attendee) and create/join instances
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { generateInstanceId } from '@/lib/waku';
-import { UserCog, Users, MessageCircleQuestion } from 'lucide-react';
+import { getInstances, saveInstance } from '@/lib/storage';
+import { UserCog, Users, MessageCircleQuestion, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
   const navigate = useNavigate();
   const [instanceId, setInstanceId] = useState('');
+  const [recentInstances, setRecentInstances] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Load recent instances
+    const instances = getInstances();
+    setRecentInstances(instances.slice(0, 3)); // Show 3 most recent
+  }, []);
 
   const handleCreateInstance = () => {
     const newInstanceId = generateInstanceId();
+    
+    // Save the new instance
+    saveInstance({
+      id: newInstanceId,
+      name: `Instance ${newInstanceId}`,
+      questions: [],
+      createdAt: Date.now()
+    });
+    
     toast.success('Instance created!');
     navigate(`/admin/${newInstanceId}`);
   };
@@ -63,6 +81,53 @@ const Index = () => {
               No servers, no databases, just peer-to-peer magic.
             </p>
           </div>
+
+          {/* Recent Instances & Quick Actions */}
+          {recentInstances.length > 0 && (
+            <Card className="mb-8 shadow-lg">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Recent Instances</CardTitle>
+                    <CardDescription>Continue where you left off</CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/instances')}
+                  >
+                    <FolderOpen className="h-4 w-4 mr-2" />
+                    View All
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {recentInstances.map((instance) => (
+                    <div
+                      key={instance.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/5 transition-colors"
+                    >
+                      <div>
+                        <code className="font-mono font-bold">{instance.id}</code>
+                        <div className="flex gap-2 mt-1">
+                          <Badge variant="secondary" className="text-xs">
+                            {instance.questions.length} questions
+                          </Badge>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => navigate(`/admin/${instance.id}`)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Open
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Role Selection Cards */}
           <div className="grid md:grid-cols-2 gap-6">
