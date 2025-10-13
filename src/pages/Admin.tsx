@@ -141,6 +141,29 @@ export default function Admin() {
     // Find all active questions
     const activeQuestions = questions.filter(q => q.active);
     
+    // Check if the last question is the only active one
+    const lastQuestion = questions[questions.length - 1];
+    const isLastQuestionOnlyActive = 
+      activeQuestions.length === 1 && 
+      activeQuestions[0].id === lastQuestion?.id;
+    
+    // If last question is the only active one, just deactivate everything
+    if (isLastQuestionOnlyActive) {
+      setQuestions(prev =>
+        prev.map(q => ({ ...q, active: false }))
+      );
+
+      await sendMessage({
+        type: MessageType.QUESTION_DEACTIVATED,
+        timestamp: Date.now(),
+        senderId: '',
+        payload: { questionId: lastQuestion.id }
+      });
+
+      toast.success('Session reset - all questions deactivated');
+      return;
+    }
+    
     // Find the next inactive question
     const firstInactiveIndex = questions.findIndex(q => !q.active);
     
