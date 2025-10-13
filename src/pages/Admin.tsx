@@ -137,6 +137,49 @@ export default function Admin() {
     toast.success(newActiveState ? 'Question activated' : 'Question deactivated');
   };
 
+  const handleNextQuestion = async () => {
+    // Find all active questions
+    const activeQuestions = questions.filter(q => q.active);
+    
+    // Find the next inactive question
+    const firstInactiveIndex = questions.findIndex(q => !q.active);
+    
+    if (firstInactiveIndex === -1) {
+      toast.info('All questions have been activated');
+      return;
+    }
+
+    const nextQuestion = questions[firstInactiveIndex];
+
+    // Deactivate all currently active questions
+    for (const activeQ of activeQuestions) {
+      setQuestions(prev =>
+        prev.map(q => q.id === activeQ.id ? { ...q, active: false } : q)
+      );
+
+      await sendMessage({
+        type: MessageType.QUESTION_DEACTIVATED,
+        timestamp: Date.now(),
+        senderId: '',
+        payload: { questionId: activeQ.id }
+      });
+    }
+
+    // Activate the next question
+    setQuestions(prev =>
+      prev.map(q => q.id === nextQuestion.id ? { ...q, active: true } : q)
+    );
+
+    await sendMessage({
+      type: MessageType.QUESTION_ACTIVATED,
+      timestamp: Date.now(),
+      senderId: '',
+      payload: { questionId: nextQuestion.id }
+    });
+
+    toast.success(`Question ${firstInactiveIndex + 1} activated`);
+  };
+
   const handleCopyInstanceId = () => {
     if (instanceId) {
       navigator.clipboard.writeText(instanceId);
@@ -242,6 +285,7 @@ export default function Admin() {
               questions={questions}
               onAddQuestion={handleAddQuestion}
               onToggleActive={handleToggleActive}
+              onNextQuestion={handleNextQuestion}
               disabled={!isConnected}
             />
           </TabsContent>

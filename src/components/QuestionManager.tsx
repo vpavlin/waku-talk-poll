@@ -12,12 +12,13 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import type { Question } from '@/types/waku';
-import { Plus, Radio } from 'lucide-react';
+import { Plus, Radio, ChevronRight } from 'lucide-react';
 
 interface QuestionManagerProps {
   questions: Question[];
   onAddQuestion: (text: string) => void;
   onToggleActive: (questionId: string) => void;
+  onNextQuestion: () => void;
   disabled?: boolean;
 }
 
@@ -25,6 +26,7 @@ export function QuestionManager({
   questions,
   onAddQuestion,
   onToggleActive,
+  onNextQuestion,
   disabled = false
 }: QuestionManagerProps) {
   const [newQuestionText, setNewQuestionText] = useState('');
@@ -36,6 +38,9 @@ export function QuestionManager({
       setNewQuestionText('');
     }
   };
+
+  const hasInactiveQuestions = questions.some(q => !q.active);
+  const activeCount = questions.filter(q => q.active).length;
 
   return (
     <div className="space-y-6">
@@ -67,10 +72,30 @@ export function QuestionManager({
       {/* Questions List */}
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>All Questions</CardTitle>
-          <CardDescription>
-            Toggle questions to make them visible to attendees
-          </CardDescription>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle>All Questions</CardTitle>
+              <CardDescription>
+                Toggle questions to make them visible to attendees
+              </CardDescription>
+            </div>
+            {questions.length > 0 && (
+              <Button
+                onClick={onNextQuestion}
+                disabled={!hasInactiveQuestions || disabled}
+                variant="default"
+                className="gap-2"
+              >
+                <ChevronRight className="h-4 w-4" />
+                Next Question
+                {activeCount > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {activeCount} active
+                  </Badge>
+                )}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {questions.length === 0 ? (
