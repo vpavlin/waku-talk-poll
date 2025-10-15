@@ -200,16 +200,27 @@ export class WakuService {
           return;
         }
         
-        // Mark as processed and persist to localStorage
+        // Mark as processed (in-memory)
         processedIds.add(messageId);
-        this.saveProcessedIds(instanceId, processedIds);
+        
+        // Only persist certain message types to localStorage
+        // State changes (activation/deactivation) should always be processed fresh
+        const shouldPersist = 
+          decoded.type === MessageType.ANSWER_SUBMITTED || 
+          decoded.type === MessageType.QUESTION_ADDED;
+        
+        if (shouldPersist) {
+          this.saveProcessedIds(instanceId, processedIds);
+        }
         
         // Prevent memory leak - keep only recent message IDs
         if (processedIds.size > this.MAX_PROCESSED_IDS) {
           const idsArray = Array.from(processedIds);
           const toRemove = idsArray.slice(0, processedIds.size - this.MAX_PROCESSED_IDS);
           toRemove.forEach(id => processedIds.delete(id));
-          this.saveProcessedIds(instanceId, processedIds);
+          if (shouldPersist) {
+            this.saveProcessedIds(instanceId, processedIds);
+          }
         }
         
         const message: WakuMessage = {
