@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 
 // Update this version whenever you make changes
-export const APP_VERSION = 'v1.0.7';
+export const APP_VERSION = 'v1.0.8';
 
 export function Version() {
   return (

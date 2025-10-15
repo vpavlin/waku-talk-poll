@@ -4,22 +4,30 @@
  * Displays real-time SDS events for debugging and workshop demonstrations
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ChevronDown, ChevronUp, Terminal, Trash2, Pause, Play } from 'lucide-react';
+import { ChevronDown, ChevronUp, Terminal, Trash2, Pause, Play, ArrowDown, GripHorizontal } from 'lucide-react';
 import { SDSEvent } from '@/lib/waku';
 import { WakuService } from '@/lib/waku';
 
 const MAX_EVENTS = 100; // Keep last 100 events
+const MIN_HEIGHT = 200;
+const MAX_HEIGHT = 600;
+const DEFAULT_HEIGHT = 300;
 
 export function DevConsole() {
   const [isOpen, setIsOpen] = useState(false);
   const [events, setEvents] = useState<SDSEvent[]>([]);
   const [isPaused, setIsPaused] = useState(false);
+  const [height, setHeight] = useState(DEFAULT_HEIGHT);
+  const [isResizing, setIsResizing] = useState(false);
+  const [stickToBottom, setStickToBottom] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const resizeStartY = useRef<number>(0);
+  const resizeStartHeight = useRef<number>(0);
   const wakuService = WakuService.getInstance();
 
   useEffect(() => {
@@ -38,12 +46,63 @@ export function DevConsole() {
     return unsubscribe;
   }, [isOpen, isPaused]);
 
-  // Auto-scroll to bottom when new events arrive
+  // Auto-scroll to bottom when new events arrive if stickToBottom is enabled
   useEffect(() => {
-    if (scrollRef.current && !isPaused) {
+    if (scrollRef.current && stickToBottom && !isPaused) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [events, isPaused]);
+  }, [events, isPaused, stickToBottom]);
+
+  // Handle scroll - disable stickToBottom if user scrolls up
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    const isAtBottom = Math.abs(scrollHeight - clientHeight - scrollTop) < 10;
+    
+    if (isAtBottom && !stickToBottom) {
+      setStickToBottom(true);
+    } else if (!isAtBottom && stickToBottom) {
+      setStickToBottom(false);
+    }
+  }, [stickToBottom]);
+
+  // Resize handlers
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartY.current = e.clientY;
+    resizeStartHeight.current = height;
+  }, [height]);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaY = resizeStartY.current - e.clientY;
+      const newHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, resizeStartHeight.current + deltaY));
+      setHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      setStickToBottom(true);
+    }
+  }, []);
 
   const getEventColor = (type: string) => {
     switch (type) {
@@ -107,6 +166,16 @@ export function DevConsole() {
       {/* Console Panel */}
       {isOpen && (
         <Card className="rounded-t-lg rounded-b-none border-b-0 shadow-2xl">
+          {/* Resize Handle */}
+          <div
+            onMouseDown={handleResizeStart}
+            className={`h-2 cursor-ns-resize hover:bg-primary/20 transition-colors flex items-center justify-center group ${
+              isResizing ? 'bg-primary/30' : ''
+            }`}
+          >
+            <GripHorizontal className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          </div>
+
           <div className="flex items-center justify-between p-3 border-b">
             <div className="flex items-center gap-2">
               <Terminal className="h-4 w-4" />
@@ -116,6 +185,15 @@ export function DevConsole() {
               </Badge>
             </div>
             <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={scrollToBottom}
+                className="h-8 w-8 p-0"
+                disabled={stickToBottom}
+              >
+                <ArrowDown className={`h-4 w-4 ${stickToBottom ? 'opacity-50' : ''}`} />
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -135,7 +213,12 @@ export function DevConsole() {
             </div>
           </div>
 
-          <ScrollArea className="h-64" ref={scrollRef}>
+          <div
+            className="overflow-y-auto"
+            style={{ height: `${height}px` }}
+            ref={scrollRef}
+            onScroll={handleScroll}
+          >
             <div className="p-4 space-y-2 font-mono text-xs">
               {events.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">
@@ -169,7 +252,7 @@ export function DevConsole() {
                 ))
               )}
             </div>
-          </ScrollArea>
+          </div>
         </Card>
       )}
     </div>
