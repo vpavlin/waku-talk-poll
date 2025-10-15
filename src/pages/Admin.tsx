@@ -170,14 +170,16 @@ export default function Admin() {
     }
     
     // Find the next inactive question
-    const firstInactiveIndex = questions.findIndex(q => !q.active);
-    
+    const lastActiveQuestionIndex = activeQuestions.length > 0 ? questions.findIndex(q => q.id === activeQuestions[activeQuestions.length - 1]?.id) : 0;
+    const sliced = questions.slice(lastActiveQuestionIndex);
+    const firstInactiveIndex = sliced.findIndex(q => !q.active);
+
     if (firstInactiveIndex === -1) {
       toast.info('All questions have been activated');
       return;
     }
 
-    const nextQuestion = questions[firstInactiveIndex];
+    const nextQuestion = sliced[firstInactiveIndex];
 
     // Deactivate all currently active questions
     for (const activeQ of activeQuestions) {
