@@ -131,10 +131,14 @@ export class WakuService {
       this.decoder
     );
 
-    // Initialize listener set, processed messages, and callbacks for this channel
+    // Initialize listener set and callbacks for this channel
     this.channelListeners.set(instanceId, new Set());
-    this.processedMessageIds.set(instanceId, new Set());
     this.messageCallbacks.set(instanceId, new Map());
+    
+    // Load processed message IDs from localStorage
+    const storedIds = this.loadProcessedIds(instanceId);
+    this.processedMessageIds.set(instanceId, storedIds);
+    console.log(`[Waku] Loaded ${storedIds.size} processed message IDs from storage`);
 
     // Setup delivery status listeners ONCE per channel
     channel.addEventListener('message-sent', (event: any) => {
@@ -172,9 +176,15 @@ export class WakuService {
     channel.addEventListener('message-received', (event: any) => {
       try {
         const wakuMessage = event.detail;
+        const decoded = DataPacket.decode(wakuMessage.payload) as any;
         
-        // Generate a unique message ID from the Waku message
-        const messageId = this.getMessageId(wakuMessage);
+        // Create message ID based on actual content (more reliable than Waku hash)
+        const messageId = this.createContentMessageId(
+          decoded.type,
+          decoded.timestamp,
+          decoded.senderId,
+          decoded.payload
+        );
         
         // Get processed IDs for this channel (with safe fallback)
         let processedIds = this.processedMessageIds.get(instanceId);
@@ -186,21 +196,21 @@ export class WakuService {
         
         // Check for duplicates
         if (processedIds.has(messageId)) {
-          console.log('[Waku] Duplicate message detected, skipping:', messageId.substring(0, 8));
+          console.log('[Waku] Duplicate message detected, skipping:', messageId.substring(0, 16));
           return;
         }
         
-        // Mark as processed
+        // Mark as processed and persist to localStorage
         processedIds.add(messageId);
+        this.saveProcessedIds(instanceId, processedIds);
         
         // Prevent memory leak - keep only recent message IDs
         if (processedIds.size > this.MAX_PROCESSED_IDS) {
           const idsArray = Array.from(processedIds);
           const toRemove = idsArray.slice(0, processedIds.size - this.MAX_PROCESSED_IDS);
           toRemove.forEach(id => processedIds.delete(id));
+          this.saveProcessedIds(instanceId, processedIds);
         }
-        
-        const decoded = DataPacket.decode(wakuMessage.payload) as any;
         
         const message: WakuMessage = {
           type: decoded.type as MessageType,
@@ -325,44 +335,57 @@ export class WakuService {
   }
 
   /**
-   * Generate a unique message ID from a Waku message
-   * Uses message hash if available, otherwise creates from content
+   * Create a reliable message ID based on message content
+   * This ensures consistent IDs across page reloads
    */
-  private getMessageId(wakuMessage: any): string {
-    // Convert Uint8Array hash to hex string
-    const toHexString = (bytes: Uint8Array): string => {
-      return Array.from(bytes)
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-    };
+  private createContentMessageId(
+    type: string,
+    timestamp: bigint | number,
+    senderId: string,
+    payload: string
+  ): string {
+    const content = `${type}:${timestamp}:${senderId}:${payload}`;
     
-    // Try to use Waku's hash property (usually Uint8Array)
-    if (wakuMessage.hash) {
-      if (wakuMessage.hash instanceof Uint8Array) {
-        return toHexString(wakuMessage.hash);
-      }
-      return String(wakuMessage.hash);
-    }
-    
-    // Try hashStr if available
-    if (wakuMessage.hashStr) {
-      return String(wakuMessage.hashStr);
-    }
-    
-    // Fallback: create ID from timestamp and payload hash
-    // This ensures duplicate content is detected even without Waku hash
-    const timestamp = wakuMessage.timestamp || Date.now();
-    const payloadStr = new TextDecoder().decode(wakuMessage.payload);
-    
-    // Simple hash function for payload
+    // Create a hash from the content
     let hash = 0;
-    for (let i = 0; i < payloadStr.length; i++) {
-      const char = payloadStr.charCodeAt(i);
+    for (let i = 0; i < content.length; i++) {
+      const char = content.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
     
-    return `${timestamp}_${hash}`;
+    return `${hash.toString(16)}_${timestamp}`;
+  }
+
+  /**
+   * Load processed message IDs from localStorage
+   */
+  private loadProcessedIds(instanceId: string): Set<string> {
+    try {
+      const key = `waku_processed_${instanceId}`;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        return new Set(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.warn('[Waku] Failed to load processed IDs from storage:', error);
+    }
+    return new Set();
+  }
+
+  /**
+   * Save processed message IDs to localStorage
+   */
+  private saveProcessedIds(instanceId: string, ids: Set<string>): void {
+    try {
+      const key = `waku_processed_${instanceId}`;
+      // Only keep the most recent IDs to prevent localStorage from growing too large
+      const idsArray = Array.from(ids);
+      const toStore = idsArray.slice(-this.MAX_PROCESSED_IDS);
+      localStorage.setItem(key, JSON.stringify(toStore));
+    } catch (error) {
+      console.warn('[Waku] Failed to save processed IDs to storage:', error);
+    }
   }
 
   /**
