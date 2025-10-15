@@ -113,61 +113,8 @@ export class WakuService {
         this.healthListeners.forEach(listener => listener(this.isHealthy));
       }
     });
-
-    // Listen to SDS events for developer console
-    this.setupSDSEventListeners();
     
     console.log('[Waku] Light node initialized successfully');
-  }
-
-  /**
-   * Setup SDS event listeners for monitoring
-   */
-  private setupSDSEventListeners(): void {
-    if (!this.node?.events) return;
-
-    // Outgoing message events
-    this.node.events.addEventListener('sds:out:message-sent', (event: any) => {
-      this.emitSDSEvent({ type: 'out', event: 'message-sent', timestamp: Date.now(), details: event.detail });
-    });
-
-    this.node.events.addEventListener('sds:out:message-acknowledged', (event: any) => {
-      this.emitSDSEvent({ type: 'out', event: 'message-acknowledged', timestamp: Date.now(), details: event.detail });
-    });
-
-    this.node.events.addEventListener('sds:out:message-possibly-acknowledged', (event: any) => {
-      this.emitSDSEvent({ type: 'out', event: 'message-possibly-acknowledged', timestamp: Date.now(), details: event.detail });
-    });
-
-    this.node.events.addEventListener('sds:out:sync-sent', (event: any) => {
-      this.emitSDSEvent({ type: 'out', event: 'sync-sent', timestamp: Date.now(), details: event.detail });
-    });
-
-    // Incoming message events
-    this.node.events.addEventListener('sds:in:message-received', (event: any) => {
-      this.emitSDSEvent({ type: 'in', event: 'message-received', timestamp: Date.now(), details: event.detail });
-    });
-
-    this.node.events.addEventListener('sds:in:message-delivered', (event: any) => {
-      this.emitSDSEvent({ type: 'in', event: 'message-delivered', timestamp: Date.now(), details: event.detail });
-    });
-
-    this.node.events.addEventListener('sds:in:message-missing', (event: any) => {
-      this.emitSDSEvent({ type: 'in', event: 'message-missing', timestamp: Date.now(), details: event.detail });
-    });
-
-    this.node.events.addEventListener('sds:in:message-irretrievably-lost', (event: any) => {
-      this.emitSDSEvent({ type: 'in', event: 'message-irretrievably-lost', timestamp: Date.now(), details: event.detail });
-    });
-
-    this.node.events.addEventListener('sds:in:sync-received', (event: any) => {
-      this.emitSDSEvent({ type: 'in', event: 'sync-received', timestamp: Date.now(), details: event.detail });
-    });
-
-    // Error events
-    this.node.events.addEventListener('sds:error-task', (event: any) => {
-      this.emitSDSEvent({ type: 'error', event: 'error-task', timestamp: Date.now(), details: event.detail });
-    });
   }
 
   /**
@@ -223,6 +170,8 @@ export class WakuService {
     // Setup delivery status listeners ONCE per channel
     channel.addEventListener('message-sent', (event: any) => {
       const messageId = event.detail;
+      this.emitSDSEvent({ type: 'out', event: 'message-sent', timestamp: Date.now(), details: { messageId }, instanceId });
+      
       const callbacks = this.messageCallbacks.get(instanceId)?.get(messageId);
       if (callbacks?.onSent) {
         console.log('[Waku] Message sent:', messageId);
@@ -232,6 +181,8 @@ export class WakuService {
 
     channel.addEventListener('message-acknowledged', (event: any) => {
       const messageId = event.detail;
+      this.emitSDSEvent({ type: 'out', event: 'message-acknowledged', timestamp: Date.now(), details: { messageId }, instanceId });
+      
       const callbacks = this.messageCallbacks.get(instanceId)?.get(messageId);
       if (callbacks?.onAcknowledged) {
         console.log('[Waku] Message acknowledged by peers:', messageId);
@@ -243,6 +194,8 @@ export class WakuService {
 
     channel.addEventListener('sending-message-irrecoverable-error', (event: any) => {
       const messageId = event.detail.messageId;
+      this.emitSDSEvent({ type: 'error', event: 'sending-error', timestamp: Date.now(), details: event.detail, instanceId });
+      
       const callbacks = this.messageCallbacks.get(instanceId)?.get(messageId);
       if (callbacks?.onError) {
         console.error('[Waku] Failed to send message:', event.detail.error);
@@ -254,6 +207,8 @@ export class WakuService {
 
     // Listen for incoming messages
     channel.addEventListener('message-received', (event: any) => {
+      this.emitSDSEvent({ type: 'in', event: 'message-received', timestamp: Date.now(), details: { messageHash: event.detail?.hash }, instanceId });
+      
       try {
         const wakuMessage = event.detail;
         const decoded = DataPacket.decode(wakuMessage.payload) as any;
