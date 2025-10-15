@@ -95,39 +95,43 @@ export default function Attendee() {
       timestamp: Date.now()
     };
 
-    try {
-      // Set status to sending
-      setMessageStatuses(prev => new Map(prev).set(questionId, 'sending'));
-      console.log('[Attendee] Sending answer for question:', questionId);
+    // Mark as submitted locally
+    setSubmittedAnswers(prev => new Set([...prev, questionId]));
 
-      // Send answer via Waku
-      const messageId = await sendMessage({
+    // Send answer via Waku with delivery callbacks
+    await sendMessage(
+      {
         type: MessageType.ANSWER_SUBMITTED,
         timestamp: Date.now(),
         senderId,
         payload: { answer }
-      });
-
-      console.log('[Attendee] Message sent, ID:', messageId);
-      
-      // Mark as submitted locally
-      setSubmittedAnswers(prev => new Set([...prev, questionId]));
-      
-      // Set status to sent (will be updated to acknowledged by event listeners)
-      setMessageStatuses(prev => new Map(prev).set(questionId, 'sent'));
-      
-      // Note: The 'acknowledged' status would be set by listening to Waku events
-      // For now we'll simulate it with a timeout since we need access to the channel events
-      setTimeout(() => {
-        setMessageStatuses(prev => new Map(prev).set(questionId, 'acknowledged'));
-        toast.success('Answer received by peers!');
-      }, 1500);
-
-    } catch (error) {
-      console.error('[Attendee] Error submitting answer:', error);
-      toast.error('Failed to submit answer. Please try again.');
-      setMessageStatuses(prev => new Map(prev).set(questionId, 'idle'));
-    }
+      },
+      {
+        onSending: () => {
+          console.log('[Attendee] Message sending...');
+          setMessageStatuses(prev => new Map(prev).set(questionId, 'sending'));
+        },
+        onSent: () => {
+          console.log('[Attendee] Message sent');
+          setMessageStatuses(prev => new Map(prev).set(questionId, 'sent'));
+        },
+        onAcknowledged: () => {
+          console.log('[Attendee] Message acknowledged by peers');
+          setMessageStatuses(prev => new Map(prev).set(questionId, 'acknowledged'));
+          toast.success('Answer received by peers!');
+        },
+        onError: (error) => {
+          console.error('[Attendee] Error sending message:', error);
+          toast.error('Failed to submit answer. Please try again.');
+          setMessageStatuses(prev => new Map(prev).set(questionId, 'idle'));
+          setSubmittedAnswers(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(questionId);
+            return newSet;
+          });
+        }
+      }
+    );
   };
 
   const activeQuestions = questions.filter(q => q.active);

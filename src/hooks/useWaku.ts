@@ -61,12 +61,20 @@ export function useWaku(instanceId: string | null) {
     };
   }, [instanceId, wakuService]);
 
-  // Send message function
-  const sendMessage = useCallback(async (message: WakuMessage) => {
+  // Send message function with delivery callbacks
+  const sendMessage = useCallback(async (
+    message: WakuMessage,
+    callbacks?: {
+      onSending?: () => void;
+      onSent?: () => void;
+      onAcknowledged?: () => void;
+      onError?: (error: any) => void;
+    }
+  ) => {
     if (!instanceId) {
       throw new Error('No instance ID provided');
     }
-    return wakuService.sendMessage(instanceId, message, senderIdRef.current);
+    return wakuService.sendMessage(instanceId, message, senderIdRef.current, callbacks);
   }, [instanceId, wakuService]);
 
   // Subscribe to messages - only works after isReady is true

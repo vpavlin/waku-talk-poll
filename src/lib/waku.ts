@@ -199,13 +199,26 @@ export class WakuService {
    * Send a message to a specific channel
    * Returns the message ID for tracking delivery status
    */
-  async sendMessage(instanceId: string, message: WakuMessage, senderId: string): Promise<string> {
+  async sendMessage(
+    instanceId: string, 
+    message: WakuMessage, 
+    senderId: string,
+    callbacks?: {
+      onSending?: () => void;
+      onSent?: () => void;
+      onAcknowledged?: () => void;
+      onError?: (error: any) => void;
+    }
+  ): Promise<string> {
     const channel = this.channels.get(instanceId);
     if (!channel) {
       throw new Error(`Not connected to channel: ${instanceId}. Call getOrCreateChannel() first.`);
     }
 
     console.log('[Waku] Sending message:', message.type, 'to channel:', instanceId);
+
+    // Notify that we're starting to send
+    callbacks?.onSending?.();
 
     // Encode message using Protobuf
     const protoMessage = DataPacket.create({
@@ -224,18 +237,21 @@ export class WakuService {
     channel.addEventListener('message-sent', (event: any) => {
       if (messageId === event.detail) {
         console.log('[Waku] Message sent:', messageId);
+        callbacks?.onSent?.();
       }
     });
 
     channel.addEventListener('message-acknowledged', (event: any) => {
       if (messageId === event.detail) {
         console.log('[Waku] Message acknowledged by peers:', messageId);
+        callbacks?.onAcknowledged?.();
       }
     });
 
     channel.addEventListener('sending-message-irrecoverable-error', (event: any) => {
       if (messageId === event.detail.messageId) {
         console.error('[Waku] Failed to send message:', event.detail.error);
+        callbacks?.onError?.(event.detail.error);
       }
     });
 
