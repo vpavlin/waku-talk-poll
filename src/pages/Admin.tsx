@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { QuestionManager } from '@/components/QuestionManager';
 import { ResultsView } from '@/components/ResultsView';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
@@ -33,6 +34,7 @@ export default function Admin() {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [copied, setCopied] = useState(false);
   const [instanceName, setInstanceName] = useState('');
+  const [showQRModal, setShowQRModal] = useState(false);
   
   const { isConnected, isInitializing, error, sendMessage, onMessage } = useWaku(instanceId || null);
 
@@ -287,16 +289,44 @@ export default function Admin() {
                   Attendees can join at: <code className="text-xs bg-muted px-2 py-1 rounded">{window.location.origin}/attendee/{instanceId}</code>
                 </p>
               </div>
-              <div className="flex-shrink-0 p-4 bg-white rounded-lg">
+              <button
+                onClick={() => setShowQRModal(true)}
+                className="flex-shrink-0 p-4 bg-white rounded-lg hover:ring-2 hover:ring-primary transition-all cursor-pointer"
+                aria-label="View larger QR code"
+              >
                 <QRCode
                   value={`${window.location.origin}/attendee/${instanceId}`}
                   size={128}
                   level="M"
                 />
-              </div>
+              </button>
             </div>
           </CardContent>
         </Card>
+
+        {/* QR Code Modal */}
+        <Dialog open={showQRModal} onOpenChange={setShowQRModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Attendee QR Code</DialogTitle>
+              <DialogDescription>
+                Scan this code to join the session
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-4">
+              <div className="p-6 bg-white rounded-lg">
+                <QRCode
+                  value={`${window.location.origin}/attendee/${instanceId}`}
+                  size={256}
+                  level="H"
+                />
+              </div>
+              <p className="text-sm text-muted-foreground text-center">
+                {window.location.origin}/attendee/{instanceId}
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {error && (
           <Card className="mb-6 border-destructive">
