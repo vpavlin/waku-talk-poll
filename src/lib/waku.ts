@@ -18,6 +18,16 @@ import type { WakuMessage } from '@/types/waku';
 import { MessageType } from '@/types/waku';
 
 /**
+ * Message delivery callbacks
+ */
+interface MessageCallbacks {
+  onSending?: () => void;
+  onSent?: () => void;
+  onAcknowledged?: () => void;
+  onError?: (error: any) => void;
+}
+
+/**
  * Message structure using Protobuf
  * This defines how messages are serialized for transmission over Waku
  */
@@ -40,6 +50,7 @@ export class WakuService {
   private healthListeners: Set<(isHealthy: boolean) => void> = new Set();
   private channelListeners: Map<string, Set<(message: WakuMessage) => void>> = new Map(); // instanceId -> listeners
   private processedMessageIds: Map<string, Set<string>> = new Map(); // instanceId -> Set<messageId>
+  private messageCallbacks: Map<string, Map<string, MessageCallbacks>> = new Map(); // instanceId -> messageId -> callbacks
   private readonly MAX_PROCESSED_IDS = 1000; // Prevent memory leak per channel
   private static instance: WakuService | null = null;
 
@@ -120,9 +131,42 @@ export class WakuService {
       this.decoder
     );
 
-    // Initialize listener set and processed messages for this channel
+    // Initialize listener set, processed messages, and callbacks for this channel
     this.channelListeners.set(instanceId, new Set());
     this.processedMessageIds.set(instanceId, new Set());
+    this.messageCallbacks.set(instanceId, new Map());
+
+    // Setup delivery status listeners ONCE per channel
+    channel.addEventListener('message-sent', (event: any) => {
+      const messageId = event.detail;
+      const callbacks = this.messageCallbacks.get(instanceId)?.get(messageId);
+      if (callbacks?.onSent) {
+        console.log('[Waku] Message sent:', messageId);
+        callbacks.onSent();
+      }
+    });
+
+    channel.addEventListener('message-acknowledged', (event: any) => {
+      const messageId = event.detail;
+      const callbacks = this.messageCallbacks.get(instanceId)?.get(messageId);
+      if (callbacks?.onAcknowledged) {
+        console.log('[Waku] Message acknowledged by peers:', messageId);
+        callbacks.onAcknowledged();
+        // Clean up callbacks after acknowledgment
+        this.messageCallbacks.get(instanceId)?.delete(messageId);
+      }
+    });
+
+    channel.addEventListener('sending-message-irrecoverable-error', (event: any) => {
+      const messageId = event.detail.messageId;
+      const callbacks = this.messageCallbacks.get(instanceId)?.get(messageId);
+      if (callbacks?.onError) {
+        console.error('[Waku] Failed to send message:', event.detail.error);
+        callbacks.onError(event.detail.error);
+        // Clean up callbacks after error
+        this.messageCallbacks.get(instanceId)?.delete(messageId);
+      }
+    });
 
     // Listen for incoming messages
     channel.addEventListener('message-received', (event: any) => {
@@ -196,6 +240,7 @@ export class WakuService {
     this.channels.delete(instanceId);
     this.channelListeners.delete(instanceId);
     this.processedMessageIds.delete(instanceId);
+    this.messageCallbacks.delete(instanceId);
     
     console.log(`[Waku] Left channel: ${instanceId}`);
   }
@@ -208,12 +253,7 @@ export class WakuService {
     instanceId: string, 
     message: WakuMessage, 
     senderId: string,
-    callbacks?: {
-      onSending?: () => void;
-      onSent?: () => void;
-      onAcknowledged?: () => void;
-      onError?: (error: any) => void;
-    }
+    callbacks?: MessageCallbacks
   ): Promise<string> {
     const channel = this.channels.get(instanceId);
     if (!channel) {
@@ -238,27 +278,13 @@ export class WakuService {
     // Send via reliable channel
     const messageId = channel.send(serialized);
 
-    // Setup listeners for delivery status
-    channel.addEventListener('message-sent', (event: any) => {
-      if (messageId === event.detail) {
-        console.log('[Waku] Message sent:', messageId);
-        callbacks?.onSent?.();
+    // Store callbacks for this message if provided
+    if (callbacks) {
+      const channelCallbacks = this.messageCallbacks.get(instanceId);
+      if (channelCallbacks) {
+        channelCallbacks.set(messageId, callbacks);
       }
-    });
-
-    channel.addEventListener('message-acknowledged', (event: any) => {
-      if (messageId === event.detail) {
-        console.log('[Waku] Message acknowledged by peers:', messageId);
-        callbacks?.onAcknowledged?.();
-      }
-    });
-
-    channel.addEventListener('sending-message-irrecoverable-error', (event: any) => {
-      if (messageId === event.detail.messageId) {
-        console.error('[Waku] Failed to send message:', event.detail.error);
-        callbacks?.onError?.(event.detail.error);
-      }
-    });
+    }
 
     return messageId;
   }
@@ -363,6 +389,7 @@ export class WakuService {
     this.channels.clear();
     this.channelListeners.clear();
     this.processedMessageIds.clear();
+    this.messageCallbacks.clear();
   }
 }
 
