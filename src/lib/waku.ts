@@ -132,8 +132,13 @@ export class WakuService {
         // Generate a unique message ID from the Waku message
         const messageId = this.getMessageId(wakuMessage);
         
-        // Get processed IDs for this channel
-        const processedIds = this.processedMessageIds.get(instanceId)!;
+        // Get processed IDs for this channel (with safe fallback)
+        let processedIds = this.processedMessageIds.get(instanceId);
+        if (!processedIds) {
+          console.warn('[Waku] ProcessedIds not found for instance, initializing:', instanceId);
+          processedIds = new Set();
+          this.processedMessageIds.set(instanceId, processedIds);
+        }
         
         // Check for duplicates
         if (processedIds.has(messageId)) {
