@@ -4,7 +4,7 @@
  * Displays answers with various visualizations
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,21 @@ interface ResultsViewProps {
 }
 
 export function ResultsView({ questions, answers }: ResultsViewProps) {
-  const selectedQuestion = questions.find(q => q.active) || questions[0];
+  // Use state to track selected question
+  const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
+
+  // Auto-select active question or first question on mount/change
+  useEffect(() => {
+    if (!selectedQuestionId || !questions.find(q => q.id === selectedQuestionId)) {
+      const activeQuestion = questions.find(q => q.active);
+      const defaultQuestion = activeQuestion || questions[0];
+      if (defaultQuestion) {
+        setSelectedQuestionId(defaultQuestion.id);
+      }
+    }
+  }, [questions, selectedQuestionId]);
+
+  const selectedQuestion = questions.find(q => q.id === selectedQuestionId);
 
   const questionAnswers = useMemo(() => {
     if (!selectedQuestion) return [];
@@ -126,7 +140,8 @@ export function ResultsView({ questions, answers }: ResultsViewProps) {
                 <Badge
                   key={q.id}
                   variant={selectedQuestion?.id === q.id ? 'default' : 'outline'}
-                  className="cursor-pointer py-2 px-4"
+                  className="cursor-pointer py-2 px-4 hover:bg-primary/10 transition-colors"
+                  onClick={() => setSelectedQuestionId(q.id)}
                 >
                   {q.text.substring(0, 50)}... ({count})
                 </Badge>
