@@ -15,6 +15,7 @@ import { generateInstanceId } from '@/lib/waku';
 import { getInstances, saveInstance } from '@/lib/storage';
 import { UserCog, Users, MessageCircleQuestion, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
+import { Version } from '@/components/Version';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -56,14 +57,17 @@ const Index = () => {
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-3">
-            <MessageCircleQuestion className="h-8 w-8 text-primary" />
-            <div>
-              <h1 className="text-2xl font-bold">Audience Q&A</h1>
-              <p className="text-sm text-muted-foreground">
-                Powered by Waku Reliable Channels
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <MessageCircleQuestion className="h-8 w-8 text-primary" />
+              <div>
+                <h1 className="text-2xl font-bold">Audience Q&A</h1>
+                <p className="text-sm text-muted-foreground">
+                  Powered by Waku Reliable Channels
+                </p>
+              </div>
             </div>
+            <Version />
           </div>
         </div>
       </header>

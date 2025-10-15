@@ -22,6 +22,7 @@ import { MessageType, type Question, type Answer } from '@/types/waku';
 import { Copy, Check, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { saveInstance, saveQuestions, saveAnswers, getQuestions, getAnswers, getInstance } from '@/lib/storage';
+import { Version } from '@/components/Version';
 
 export default function Admin() {
   const { instanceId } = useParams<{ instanceId: string }>();
@@ -249,7 +250,10 @@ export default function Admin() {
                 <p className="text-sm text-muted-foreground">Manage your Q&A instance</p>
               </div>
             </div>
-            <ConnectionStatus isConnected={isConnected} isInitializing={isInitializing} />
+            <div className="flex items-center gap-3">
+              <Version />
+              <ConnectionStatus isConnected={isConnected} isInitializing={isInitializing} />
+            </div>
           </div>
         </div>
       </header>

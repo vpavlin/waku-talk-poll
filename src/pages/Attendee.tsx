@@ -18,6 +18,7 @@ import { useWaku } from '@/hooks/useWaku';
 import { MessageType, type Question, type Answer } from '@/types/waku';
 import { ArrowLeft, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import { Version } from '@/components/Version';
 
 type MessageStatus = 'idle' | 'sending' | 'sent' | 'acknowledged';
 
@@ -175,7 +176,10 @@ export default function Attendee() {
                 </p>
               </div>
             </div>
-            <ConnectionStatus isConnected={isConnected} isInitializing={isInitializing} />
+            <div className="flex items-center gap-3">
+              <Version />
+              <ConnectionStatus isConnected={isConnected} isInitializing={isInitializing} />
+            </div>
           </div>
         </div>
       </header>
