@@ -28,6 +28,17 @@ interface MessageCallbacks {
 }
 
 /**
+ * SDS Event types for developer console
+ */
+export interface SDSEvent {
+  type: 'out' | 'in' | 'error';
+  event: string;
+  timestamp: number;
+  details: any;
+  instanceId?: string;
+}
+
+/**
  * Message structure using Protobuf
  * This defines how messages are serialized for transmission over Waku
  */
@@ -52,6 +63,7 @@ export class WakuService {
   private processedMessageIds: Map<string, Set<string>> = new Map(); // instanceId -> Set<messageId>
   private messageCallbacks: Map<string, Map<string, MessageCallbacks>> = new Map(); // instanceId -> messageId -> callbacks
   private readonly MAX_PROCESSED_IDS = 1000; // Prevent memory leak per channel
+  private sdsEventListeners: Set<(event: SDSEvent) => void> = new Set();
   private static instance: WakuService | null = null;
 
   private constructor() {}
@@ -101,8 +113,76 @@ export class WakuService {
         this.healthListeners.forEach(listener => listener(this.isHealthy));
       }
     });
+
+    // Listen to SDS events for developer console
+    this.setupSDSEventListeners();
     
     console.log('[Waku] Light node initialized successfully');
+  }
+
+  /**
+   * Setup SDS event listeners for monitoring
+   */
+  private setupSDSEventListeners(): void {
+    if (!this.node?.events) return;
+
+    // Outgoing message events
+    this.node.events.addEventListener('sds:out:message-sent', (event: any) => {
+      this.emitSDSEvent({ type: 'out', event: 'message-sent', timestamp: Date.now(), details: event.detail });
+    });
+
+    this.node.events.addEventListener('sds:out:message-acknowledged', (event: any) => {
+      this.emitSDSEvent({ type: 'out', event: 'message-acknowledged', timestamp: Date.now(), details: event.detail });
+    });
+
+    this.node.events.addEventListener('sds:out:message-possibly-acknowledged', (event: any) => {
+      this.emitSDSEvent({ type: 'out', event: 'message-possibly-acknowledged', timestamp: Date.now(), details: event.detail });
+    });
+
+    this.node.events.addEventListener('sds:out:sync-sent', (event: any) => {
+      this.emitSDSEvent({ type: 'out', event: 'sync-sent', timestamp: Date.now(), details: event.detail });
+    });
+
+    // Incoming message events
+    this.node.events.addEventListener('sds:in:message-received', (event: any) => {
+      this.emitSDSEvent({ type: 'in', event: 'message-received', timestamp: Date.now(), details: event.detail });
+    });
+
+    this.node.events.addEventListener('sds:in:message-delivered', (event: any) => {
+      this.emitSDSEvent({ type: 'in', event: 'message-delivered', timestamp: Date.now(), details: event.detail });
+    });
+
+    this.node.events.addEventListener('sds:in:message-missing', (event: any) => {
+      this.emitSDSEvent({ type: 'in', event: 'message-missing', timestamp: Date.now(), details: event.detail });
+    });
+
+    this.node.events.addEventListener('sds:in:message-irretrievably-lost', (event: any) => {
+      this.emitSDSEvent({ type: 'in', event: 'message-irretrievably-lost', timestamp: Date.now(), details: event.detail });
+    });
+
+    this.node.events.addEventListener('sds:in:sync-received', (event: any) => {
+      this.emitSDSEvent({ type: 'in', event: 'sync-received', timestamp: Date.now(), details: event.detail });
+    });
+
+    // Error events
+    this.node.events.addEventListener('sds:error-task', (event: any) => {
+      this.emitSDSEvent({ type: 'error', event: 'error-task', timestamp: Date.now(), details: event.detail });
+    });
+  }
+
+  /**
+   * Emit SDS event to all listeners
+   */
+  private emitSDSEvent(event: SDSEvent): void {
+    this.sdsEventListeners.forEach(listener => listener(event));
+  }
+
+  /**
+   * Subscribe to SDS events for monitoring
+   */
+  onSDSEvent(listener: (event: SDSEvent) => void): () => void {
+    this.sdsEventListeners.add(listener);
+    return () => this.sdsEventListeners.delete(listener);
   }
 
   /**

@@ -23,6 +23,7 @@ import { Copy, Check, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { saveInstance, saveQuestions, saveAnswers, getQuestions, getAnswers, getInstance } from '@/lib/storage';
 import { Version } from '@/components/Version';
+import { DevConsole } from '@/components/DevConsole';
 
 export default function Admin() {
   const { instanceId } = useParams<{ instanceId: string }>();
@@ -322,6 +323,9 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Developer Console for SDS event monitoring */}
+      <DevConsole />
     </div>
   );
 }
