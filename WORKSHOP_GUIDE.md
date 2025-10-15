@@ -1,7 +1,7 @@
-# Waku Reliable Channels Workshop Guide
+# PulseCheck - Waku Reliable Channels Workshop Guide
 
 ## Workshop Overview
-In this hands-on workshop, you'll implement real-time peer-to-peer communication using **Waku Reliable Channels**. You'll start with a UI-only Q&A app and add decentralized messaging to enable live question/answer exchange without a central server.
+In this hands-on workshop, you'll build **PulseCheck** - implementing real-time peer-to-peer communication using **Waku Reliable Channels**. You'll start with a UI-only app and add decentralized messaging to enable live question/answer exchange without a central server.
 
 **Duration:** 90-120 minutes
 
@@ -49,7 +49,7 @@ By the end of this workshop, you will:
 **Expected Outcome:**
 ```typescript
 this.node = await createLightNode({ defaultBootstrap: true });
-const contentTopic = `/audience-qa/1/data/proto`;
+const contentTopic = `/pulsecheck/1/data/proto`;
 this.encoder = this.node.createEncoder({ contentTopic });
 this.decoder = this.node.createDecoder({ contentTopic });
 ```
@@ -71,7 +71,7 @@ this.decoder = this.node.createDecoder({ contentTopic });
 
 **Key Concepts:**
 - **ReliableChannel**: Guarantees message delivery with acknowledgments
-- **Instance ID**: Unique identifier for each Q&A session (like a "room")
+- **Instance ID**: Unique identifier for each PulseCheck session (like a "room")
 - **Sender ID**: Unique identifier for each participant
 
 **TODO Locations:**

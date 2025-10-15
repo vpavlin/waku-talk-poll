@@ -1,6 +1,6 @@
-# Workshop Solutions Guide
+# PulseCheck Workshop Solutions Guide
 
-This guide contains the complete solutions for all TODO tasks in the Waku P2P workshop. Use this only if you get stuck or want to verify your implementation.
+This guide contains the complete solutions for all TODO tasks in the PulseCheck Waku P2P workshop. Use this only if you get stuck or want to verify your implementation.
 
 ## Part 1: WakuService Implementation (`src/lib/waku.ts`)
 
@@ -13,7 +13,7 @@ this.node = await createLightNode({ defaultBootstrap: true });
 ### TODO 1.2: Define Content Topic
 
 ```typescript
-const contentTopic = `/audience-qa/1/data/proto`;
+const contentTopic = `/pulsecheck/1/data/proto`;
 ```
 
 ### TODO 1.3: Create Encoder and Decoder

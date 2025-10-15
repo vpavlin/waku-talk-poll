@@ -1,10 +1,10 @@
-# Decentralized Q&A Workshop
+# PulseCheck - Real-Time Audience Engagement
 
-A real-time Q&A application built with Waku - demonstrating peer-to-peer messaging without centralized servers.
+Get the pulse of your audience with PulseCheck - a real-time engagement app built with Waku, demonstrating peer-to-peer messaging without centralized servers.
 
 ## 🎯 What is this?
 
-This is a **live Q&A application** designed for workshops, conferences, and training sessions. What makes it special? It runs entirely **peer-to-peer** using the Waku network - no backend servers, no database, just direct communication between participants.
+This is **PulseCheck** - a live audience engagement application designed for workshops, conferences, and training sessions. What makes it special? It runs entirely **peer-to-peer** using the Waku network - no backend servers, no database, just direct communication between participants.
 
 ### Key Features
 
@@ -32,7 +32,7 @@ This is a **live Q&A application** designed for workshops, conferences, and trai
 ### How It Works
 
 1. **Instance Creation**: Admin creates a unique instance ID (e.g., "YG1I32")
-2. **Topic Subscription**: Both admin and attendees subscribe to `/qa-app/{instanceId}`
+2. **Topic Subscription**: Both admin and attendees subscribe to `/pulsecheck/{instanceId}`
 3. **Message Broadcasting**: Actions (new questions, activations, answers) are broadcast as messages
 4. **Reliable Delivery**: Waku's reliable channel ensures messages reach all participants
 5. **Local Persistence**: Browser localStorage caches data for offline resilience
@@ -69,7 +69,7 @@ This is a **live Q&A application** designed for workshops, conferences, and trai
 
 **4. Content Topics**
 - Namespaced message routing
-- Format: `/{app-name}/{version}/{instance-id}/{message-type}`
+- Format: `/pulsecheck/{version}/{data-type}/{encoding}`
 - Allows filtering and organization
 
 ## 📁 Project Structure
@@ -315,4 +315,4 @@ MIT License - See LICENSE file for details
 
 ---
 
-**Built with ❤️ for decentralized communication workshops**
+**PulseCheck - Built with ❤️ for decentralized communication workshops**
