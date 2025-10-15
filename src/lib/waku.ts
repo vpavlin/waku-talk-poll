@@ -168,6 +168,19 @@ export class WakuService {
     console.log(`[Waku] Loaded ${storedIds.size} processed message IDs from storage`);
 
     // Setup delivery status listeners ONCE per channel
+    
+    // Sending events
+    channel.addEventListener('sending-message', (event: any) => {
+      const messageId = event.detail;
+      this.emitSDSEvent({ type: 'out', event: 'sending-message', timestamp: Date.now(), details: { messageId }, instanceId });
+      
+      const callbacks = this.messageCallbacks.get(instanceId)?.get(messageId);
+      if (callbacks?.onSending) {
+        console.log('[Waku] Sending message:', messageId);
+        callbacks.onSending();
+      }
+    });
+
     channel.addEventListener('message-sent', (event: any) => {
       const messageId = event.detail;
       this.emitSDSEvent({ type: 'out', event: 'message-sent', timestamp: Date.now(), details: { messageId }, instanceId });
@@ -177,6 +190,19 @@ export class WakuService {
         console.log('[Waku] Message sent:', messageId);
         callbacks.onSent();
       }
+    });
+
+    // Acknowledgement events
+    channel.addEventListener('message-possibly-acknowledged', (event: any) => {
+      const { messageId, possibleAckCount } = event.detail;
+      this.emitSDSEvent({ 
+        type: 'out', 
+        event: 'message-possibly-acknowledged', 
+        timestamp: Date.now(), 
+        details: { messageId, possibleAckCount }, 
+        instanceId 
+      });
+      console.log('[Waku] Message possibly acknowledged:', messageId, 'count:', possibleAckCount);
     });
 
     channel.addEventListener('message-acknowledged', (event: any) => {
@@ -192,6 +218,7 @@ export class WakuService {
       }
     });
 
+    // Error events
     channel.addEventListener('sending-message-irrecoverable-error', (event: any) => {
       const messageId = event.detail.messageId;
       this.emitSDSEvent({ type: 'error', event: 'sending-error', timestamp: Date.now(), details: event.detail, instanceId });
@@ -203,6 +230,18 @@ export class WakuService {
         // Clean up callbacks after error
         this.messageCallbacks.get(instanceId)?.delete(messageId);
       }
+    });
+
+    // Reception events
+    channel.addEventListener('irretrievable-message', (event: any) => {
+      this.emitSDSEvent({ 
+        type: 'error', 
+        event: 'irretrievable-message', 
+        timestamp: Date.now(), 
+        details: event.detail, 
+        instanceId 
+      });
+      console.warn('[Waku] Irretrievable message:', event.detail);
     });
 
     // Listen for incoming messages

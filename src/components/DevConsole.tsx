@@ -104,11 +104,15 @@ export function DevConsole() {
     }
   }, []);
 
-  const getEventColor = (type: string) => {
+  const getEventColor = (type: string, eventName: string) => {
+    if (type === 'error') return 'bg-destructive/10 text-destructive border-destructive/20';
+    if (eventName === 'sending-message') return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
+    if (eventName === 'message-possibly-acknowledged') return 'bg-orange-500/10 text-orange-500 border-orange-500/20';
+    if (eventName === 'message-acknowledged') return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+    
     switch (type) {
       case 'out': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
       case 'in': return 'bg-green-500/10 text-green-500 border-green-500/20';
-      case 'error': return 'bg-destructive/10 text-destructive border-destructive/20';
       default: return 'bg-muted text-muted-foreground';
     }
   };
@@ -134,7 +138,13 @@ export function DevConsole() {
 
   const formatDetails = (details: any) => {
     if (typeof details === 'string') return details;
-    if (details?.messageId) return `ID: ${details.messageId.substring(0, 12)}...`;
+    if (details?.messageId) {
+      const id = `ID: ${details.messageId.substring(0, 12)}...`;
+      if (details?.possibleAckCount !== undefined) {
+        return `${id} (bloom count: ${details.possibleAckCount})`;
+      }
+      return id;
+    }
     if (details?.count !== undefined) return `Count: ${details.count}`;
     if (Array.isArray(details)) return `${details.length} items`;
     return JSON.stringify(details).substring(0, 50);
@@ -228,7 +238,7 @@ export function DevConsole() {
                 events.map((event, index) => (
                   <div
                     key={index}
-                    className={`p-2 rounded border ${getEventColor(event.type)}`}
+                    className={`p-2 rounded border ${getEventColor(event.type, event.event)}`}
                   >
                     <div className="flex items-start gap-2">
                       <span className="text-base font-bold shrink-0">
