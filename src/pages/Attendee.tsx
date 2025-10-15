@@ -19,6 +19,7 @@ import { MessageType, type Question, type Answer } from '@/types/waku';
 import { ArrowLeft, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { Version } from '@/components/Version';
+import { saveQuestions, getQuestions } from '@/lib/storage';
 
 type MessageStatus = 'idle' | 'sending' | 'sent' | 'acknowledged';
 
@@ -30,6 +31,26 @@ export default function Attendee() {
   const [messageStatuses, setMessageStatuses] = useState<Map<string, MessageStatus>>(new Map());
   
   const { isConnected, isInitializing, isReady, error, sendMessage, onMessage, senderId } = useWaku(instanceId || null);
+
+  // Load persisted questions on mount
+  useEffect(() => {
+    if (!instanceId) return;
+    
+    console.log('[Attendee] Loading persisted questions for instance:', instanceId);
+    const persistedQuestions = getQuestions(instanceId);
+    if (persistedQuestions.length > 0) {
+      setQuestions(persistedQuestions);
+      console.log('[Attendee] Loaded', persistedQuestions.length, 'questions from storage');
+    }
+  }, [instanceId]);
+
+  // Auto-save questions whenever they change
+  useEffect(() => {
+    if (!instanceId || questions.length === 0) return;
+    
+    console.log('[Attendee] Auto-saving questions:', questions.length);
+    saveQuestions(instanceId, questions);
+  }, [instanceId, questions]);
 
   // Listen for question updates - only after Waku is ready
   useEffect(() => {
