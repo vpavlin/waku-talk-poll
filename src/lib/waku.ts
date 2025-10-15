@@ -74,8 +74,8 @@ export class WakuService {
 
     console.log(`[Waku] Joining channel: ${instanceId}`);
     
-    // Content topic for this channel - follows Waku convention
-    const contentTopic = `/audience-qa/1/instance-${instanceId}/proto`;
+    // Single content topic - Reliable Channels handles instance separation via channel ID
+    const contentTopic = `/audience-qa/1/data/proto`;
     
     // Create encoder and decoder for this channel
     const encoder = this.node.createEncoder({ contentTopic });
