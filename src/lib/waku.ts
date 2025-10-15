@@ -1,15 +1,14 @@
 /**
- * Waku Reliable Channels integration
+ * Waku Reliable Channels integration - WORKSHOP STARTER
  * 
- * This module handles p2p communication using Waku Reliable Channels.
- * Uses a singleton WakuService with a single node that manages multiple channels.
- * Each instance has its own ReliableChannel identified by instanceId.
+ * In this workshop, you'll implement p2p communication using Waku Reliable Channels.
+ * Follow the TODOs in order and refer to WORKSHOP_GUIDE.md for detailed instructions.
  * 
  * Architecture:
  * - Single Waku node initialized once per app
  * - Single content topic: /audience-qa/1/data/proto
  * - Multiple ReliableChannels managed in a Map (key: instanceId)
- * - Switching instances is fast - just switch active channel
+ * - Each instance (Q&A session) has its own channel
  */
 
 import { createLightNode, ReliableChannel, HealthStatus } from '@waku/sdk';
@@ -19,6 +18,7 @@ import { MessageType } from '@/types/waku';
 
 /**
  * Message delivery callbacks
+ * These allow tracking message status through its lifecycle
  */
 interface MessageCallbacks {
   onSending?: () => void;
@@ -28,7 +28,7 @@ interface MessageCallbacks {
 }
 
 /**
- * SDS Event types for developer console
+ * SDS Event types for developer console monitoring
  */
 export interface SDSEvent {
   type: 'out' | 'in' | 'error';
@@ -40,7 +40,7 @@ export interface SDSEvent {
 
 /**
  * Message structure using Protobuf
- * This defines how messages are serialized for transmission over Waku
+ * Defines how messages are serialized for transmission over Waku
  */
 const DataPacket = new protobuf.Type('DataPacket')
   .add(new protobuf.Field('type', 1, 'string'))
@@ -50,7 +50,7 @@ const DataPacket = new protobuf.Type('DataPacket')
 
 /**
  * WakuService handles all Waku node operations and message passing
- * Singleton pattern - one node manages multiple channels
+ * Singleton pattern ensures one node manages multiple channels
  */
 export class WakuService {
   private node: any = null;
@@ -59,10 +59,10 @@ export class WakuService {
   private decoder: any = null;
   private isHealthy: boolean = false;
   private healthListeners: Set<(isHealthy: boolean) => void> = new Set();
-  private channelListeners: Map<string, Set<(message: WakuMessage) => void>> = new Map(); // instanceId -> listeners
-  private processedMessageIds: Map<string, Set<string>> = new Map(); // instanceId -> Set<messageId>
-  private messageCallbacks: Map<string, Map<string, MessageCallbacks>> = new Map(); // instanceId -> messageId -> callbacks
-  private readonly MAX_PROCESSED_IDS = 1000; // Prevent memory leak per channel
+  private channelListeners: Map<string, Set<(message: WakuMessage) => void>> = new Map();
+  private processedMessageIds: Map<string, Set<string>> = new Map();
+  private messageCallbacks: Map<string, Map<string, MessageCallbacks>> = new Map();
+  private readonly MAX_PROCESSED_IDS = 1000; // Prevent memory leak
   private sdsEventListeners: Set<(event: SDSEvent) => void> = new Set();
   private static instance: WakuService | null = null;
 
@@ -79,9 +79,10 @@ export class WakuService {
   }
 
   /**
-   * Initialize Waku node and connect to the network
-   * Uses defaultBootstrap for automatic peer discovery
-   * Only needs to be called once for the entire app
+   * PART 1: Initialize Waku node and connect to the network
+   * 
+   * This method sets up the foundation for all P2P communication.
+   * It only needs to be called once for the entire app.
    */
   async initialize(): Promise<void> {
     if (this.node) {
@@ -91,17 +92,26 @@ export class WakuService {
 
     console.log('[Waku] Initializing light node...');
     
-    // Create a light node - efficient for browser environments
+    // TODO 1.1: Create a Waku light node with default bootstrap
+    // Hint: Use createLightNode({ defaultBootstrap: true })
+    // This creates a browser-optimized node that automatically discovers peers
     this.node = await createLightNode({ defaultBootstrap: true });
     
-    // Single content topic - Reliable Channels handles instance separation
+    // TODO 1.2: Define the content topic for message routing
+    // Format: /app-name/version/type/encoding
+    // Example: `/audience-qa/1/data/proto`
     const contentTopic = `/audience-qa/1/data/proto`;
     
-    // Create encoder and decoder once for all channels
+    // TODO 1.3: Create encoder and decoder for the content topic
+    // Hint: this.encoder = this.node.createEncoder({ contentTopic })
+    // These are used to serialize/deserialize messages
     this.encoder = this.node.createEncoder({ contentTopic });
     this.decoder = this.node.createDecoder({ contentTopic });
     
-    // Listen to health status changes
+    // TODO 1.4: Set up health status listener
+    // Listen to 'waku:health' events and update this.isHealthy
+    // Notify healthListeners when status changes
+    // Hint: this.node.events.addEventListener('waku:health', ...)
     this.node.events.addEventListener('waku:health', (event: any) => {
       const health = event.detail;
       const wasHealthy = this.isHealthy;
@@ -118,7 +128,7 @@ export class WakuService {
   }
 
   /**
-   * Emit SDS event to all listeners
+   * Emit SDS event to all listeners (for DevConsole monitoring)
    */
   private emitSDSEvent(event: SDSEvent): void {
     this.sdsEventListeners.forEach(listener => listener(event));
@@ -133,15 +143,16 @@ export class WakuService {
   }
 
   /**
-   * Get or create a channel for an instance
-   * Reuses existing channel if already joined
+   * PART 2: Get or create a channel for an instance
+   * 
+   * Each Q&A instance (room) has its own ReliableChannel.
+   * Channels ensure messages are delivered and acknowledged.
    */
   async getOrCreateChannel(instanceId: string, senderId: string): Promise<void> {
     if (!this.node || !this.encoder || !this.decoder) {
       throw new Error('Node not initialized. Call initialize() first.');
     }
 
-    // Return if already in this channel
     if (this.channels.has(instanceId)) {
       console.log(`[Waku] Already in channel: ${instanceId}`);
       return;
@@ -149,7 +160,9 @@ export class WakuService {
 
     console.log(`[Waku] Creating channel: ${instanceId}`);
     
-    // Create reliable channel - handles message delivery guarantees
+    // TODO 1.5: Create a ReliableChannel
+    // Hint: await ReliableChannel.create(this.node, instanceId, senderId, this.encoder, this.decoder)
+    // The channel handles message delivery guarantees and acknowledgments
     const channel = await ReliableChannel.create(
       this.node,
       instanceId,
@@ -158,16 +171,25 @@ export class WakuService {
       this.decoder
     );
 
-    // Initialize listener set and callbacks for this channel
+    // Initialize data structures for this channel
     this.channelListeners.set(instanceId, new Set());
     this.messageCallbacks.set(instanceId, new Map());
     
-    // Load processed message IDs from localStorage
     const storedIds = this.loadProcessedIds(instanceId);
     this.processedMessageIds.set(instanceId, storedIds);
     console.log(`[Waku] Loaded ${storedIds.size} processed message IDs from storage`);
 
-    // Setup delivery status listeners ONCE per channel
+    // TODO 1.6: Set up message delivery event listeners
+    // These track the message lifecycle: sending → sent → acknowledged
+    
+    // Example structure (you need to implement):
+    // channel.addEventListener('sending-message', (event: any) => {
+    //   const messageId = event.detail;
+    //   // 1. Emit SDS event for monitoring
+    //   // 2. Call onSending callback if exists
+    // });
+    
+    // Repeat for: 'message-sent', 'message-acknowledged', 'sending-message-irrecoverable-error'
     
     // Sending events
     channel.addEventListener('sending-message', (event: any) => {
@@ -244,7 +266,21 @@ export class WakuService {
       console.warn('[Waku] Irretrievable message:', event.detail);
     });
 
-    // Listen for incoming messages
+    // TODO 1.7: Set up incoming message listener
+    // channel.addEventListener('message-received', (event: any) => {
+    //   // TODO 1.11: Decode the Protobuf payload
+    //   // Hint: const decoded = DataPacket.decode(event.detail.payload)
+    //   
+    //   // TODO 1.12: Create content-based message ID for deduplication
+    //   // Hint: Use this.createContentMessageId(decoded.type, decoded.timestamp, ...)
+    //   
+    //   // TODO 1.13: Check for duplicates
+    //   // If already processed, return early to prevent duplicate handling
+    //   
+    //   // TODO 1.14: Mark as processed and notify listeners
+    //   // Add to processedIds, save to localStorage, notify all listeners
+    // });
+    
     channel.addEventListener('message-received', (event: any) => {
       this.emitSDSEvent({ type: 'in', event: 'message-received', timestamp: Date.now(), details: { messageHash: event.detail?.hash }, instanceId });
       
@@ -321,17 +357,14 @@ export class WakuService {
   }
 
   /**
-   * Leave a channel (instance)
+   * Leave a channel (cleanup when leaving an instance)
    */
   async leaveChannel(instanceId: string): Promise<void> {
     const channel = this.channels.get(instanceId);
-    if (!channel) {
-      return;
-    }
+    if (!channel) return;
 
     console.log(`[Waku] Leaving channel: ${instanceId}`);
     
-    // Clean up channel resources
     this.channels.delete(instanceId);
     this.channelListeners.delete(instanceId);
     this.processedMessageIds.delete(instanceId);
@@ -341,7 +374,8 @@ export class WakuService {
   }
 
   /**
-   * Send a message to a specific channel
+   * PART 3: Send a message to a specific channel
+   * 
    * Returns the message ID for tracking delivery status
    */
   async sendMessage(
@@ -360,7 +394,9 @@ export class WakuService {
     // Notify that we're starting to send
     callbacks?.onSending?.();
 
-    // Encode message using Protobuf
+    // TODO 1.8: Encode message using Protobuf DataPacket
+    // Hint: DataPacket.create({ type, timestamp, senderId, payload: JSON.stringify(...) })
+    // Then: DataPacket.encode(protoMessage).finish()
     const protoMessage = DataPacket.create({
       type: message.type,
       timestamp: message.timestamp,
@@ -370,10 +406,12 @@ export class WakuService {
 
     const serialized = DataPacket.encode(protoMessage).finish();
     
-    // Send via reliable channel
+    // TODO 1.9: Send via reliable channel and get message ID
+    // Hint: const messageId = channel.send(serialized)
     const messageId = channel.send(serialized);
 
-    // Store callbacks for this message if provided
+    // TODO 1.10: Store callbacks for delivery tracking
+    // Hint: this.messageCallbacks.get(instanceId)?.set(messageId, callbacks)
     if (callbacks) {
       const channelCallbacks = this.messageCallbacks.get(instanceId);
       if (channelCallbacks) {
@@ -407,7 +445,6 @@ export class WakuService {
    */
   onHealthChange(listener: (isHealthy: boolean) => void): () => void {
     this.healthListeners.add(listener);
-    // Immediately notify of current status
     listener(this.isHealthy);
     return () => this.healthListeners.delete(listener);
   }
@@ -420,8 +457,8 @@ export class WakuService {
   }
 
   /**
-   * Create a reliable message ID based on message content
-   * This ensures consistent IDs across page reloads
+   * Helper: Create a reliable message ID based on message content
+   * This ensures consistent IDs across page reloads for deduplication
    */
   private createContentMessageId(
     type: string,
@@ -431,19 +468,18 @@ export class WakuService {
   ): string {
     const content = `${type}:${timestamp}:${senderId}:${payload}`;
     
-    // Create a hash from the content
     let hash = 0;
     for (let i = 0; i < content.length; i++) {
       const char = content.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
+      hash = hash & hash;
     }
     
     return `${hash.toString(16)}_${timestamp}`;
   }
 
   /**
-   * Load processed message IDs from localStorage
+   * Helper: Load processed message IDs from localStorage
    */
   private loadProcessedIds(instanceId: string): Set<string> {
     try {
@@ -459,12 +495,11 @@ export class WakuService {
   }
 
   /**
-   * Save processed message IDs to localStorage
+   * Helper: Save processed message IDs to localStorage
    */
   private saveProcessedIds(instanceId: string, ids: Set<string>): void {
     try {
       const key = `waku_processed_${instanceId}`;
-      // Only keep the most recent IDs to prevent localStorage from growing too large
       const idsArray = Array.from(ids);
       const toStore = idsArray.slice(-this.MAX_PROCESSED_IDS);
       localStorage.setItem(key, JSON.stringify(toStore));
@@ -474,13 +509,11 @@ export class WakuService {
   }
 
   /**
-   * Cleanup all resources
-   * Should only be called when shutting down the entire app
+   * Cleanup all resources (called on app shutdown)
    */
   async stop(): Promise<void> {
     console.log('[Waku] Stopping service...');
     
-    // Leave all channels
     const instanceIds = Array.from(this.channels.keys());
     for (const instanceId of instanceIds) {
       await this.leaveChannel(instanceId);
@@ -498,21 +531,28 @@ export class WakuService {
     this.channelListeners.clear();
     this.processedMessageIds.clear();
     this.messageCallbacks.clear();
+    this.sdsEventListeners.clear();
+    this.isHealthy = false;
+    
+    console.log('[Waku] Service stopped');
   }
 }
 
 /**
- * Generate a random sender ID for a user
- * Each participant must have a unique ID for reliability tracking
+ * Helper: Generate a unique sender ID for this client
  */
 export function generateSenderId(): string {
-  return `user_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
+  return `user-${Math.random().toString(36).substring(2, 11)}`;
 }
 
 /**
- * Generate a random instance ID
- * Used when creating new Q&A instances
+ * Helper: Generate a random instance ID (for creating new Q&A sessions)
  */
 export function generateInstanceId(): string {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }

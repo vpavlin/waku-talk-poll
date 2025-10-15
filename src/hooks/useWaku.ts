@@ -1,6 +1,8 @@
 /**
- * React hook for managing Waku connection
- * Uses the singleton WakuService instance
+ * React hook for managing Waku connection - WORKSHOP STARTER
+ * 
+ * This hook provides a React-friendly interface to the WakuService.
+ * Follow the TODOs and refer to WORKSHOP_GUIDE.md Part 2.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -13,7 +15,10 @@ export function useWaku(instanceId: string | null) {
   const [error, setError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const senderIdRef = useRef<string>(generateSenderId());
-  const wakuService = WakuService.getInstance();
+  
+  // TODO 2.1: Get WakuService singleton instance
+  // Hint: const wakuService = WakuService.getInstance();
+  const wakuService = null as any; // Replace with actual service
 
   // Initialize Waku when instanceId is provided
   useEffect(() => {
@@ -27,16 +32,16 @@ export function useWaku(instanceId: string | null) {
 
         console.log('[useWaku] Getting singleton Waku service');
         
-        // Setup health listener (only once)
-        wakuService.onHealthChange(setIsConnected);
+        // Setup health listener
+        // wakuService.onHealthChange(setIsConnected);
 
-        // Initialize node (idempotent - only happens once)
+        // TODO 2.2: Initialize Waku node (idempotent - only happens once)
+        // Hint: await wakuService.initialize();
         console.log('[useWaku] Initializing Waku node');
-        await wakuService.initialize();
         
-        // Get or create channel for this instance
+        // TODO 2.3: Get or create channel for this instance
+        // Hint: await wakuService.getOrCreateChannel(instanceId, senderIdRef.current);
         console.log('[useWaku] Joining channel:', instanceId);
-        await wakuService.getOrCreateChannel(instanceId, senderIdRef.current);
         
         console.log('[useWaku] Channel ready, listeners can now be registered');
         setIsReady(true);
@@ -51,17 +56,22 @@ export function useWaku(instanceId: string | null) {
 
     initWaku();
 
-    // Cleanup on unmount - leave this specific channel
+    // TODO 2.4: Cleanup on unmount - leave this specific channel
+    // Hint: wakuService.leaveChannel(instanceId)
     return () => {
       if (instanceId) {
         console.log('[useWaku] Leaving channel:', instanceId);
-        wakuService.leaveChannel(instanceId);
+        // Add cleanup code here
       }
       setIsReady(false);
     };
   }, [instanceId, wakuService]);
 
-  // Send message function with delivery callbacks
+  // TODO 2.5: Implement sendMessage function with delivery callbacks
+  // This function should:
+  // 1. Check if instanceId exists
+  // 2. Call wakuService.sendMessage with the message and callbacks
+  // 3. Return the message ID for tracking
   const sendMessage = useCallback(async (
     message: WakuMessage,
     callbacks?: {
@@ -71,22 +81,28 @@ export function useWaku(instanceId: string | null) {
       onError?: (error: any) => void;
     }
   ) => {
-    if (!instanceId) {
-      throw new Error('No instance ID provided');
-    }
-    return wakuService.sendMessage(instanceId, message, senderIdRef.current, callbacks);
+    // Implement message sending here
+    throw new Error('sendMessage not implemented - see TODO 2.5');
   }, [instanceId, wakuService]);
 
-  // Subscribe to messages - only works after isReady is true
+  // TODO 2.6: Register message listener with WakuService
+  // This function should:
+  // 1. Check if instanceId exists
+  // 2. Call wakuService.onMessage to register the listener
+  // 3. Return the unsubscribe function
   const onMessage = useCallback((listener: (message: WakuMessage) => void) => {
     console.log('[useWaku] Registering message listener, ready:', isReady);
+    
     if (!instanceId) {
       console.warn('[useWaku] Cannot register listener - no instance ID');
       return () => {};
     }
-    const unsubscribe = wakuService.onMessage(instanceId, listener);
+    
+    // TODO 2.7: Return unsubscribe function from wakuService.onMessage
+    // Hint: return wakuService.onMessage(instanceId, listener);
+    
     console.log('[useWaku] Listener registered successfully');
-    return unsubscribe;
+    return () => {}; // Replace with actual unsubscribe
   }, [isReady, instanceId, wakuService]);
 
   return {
