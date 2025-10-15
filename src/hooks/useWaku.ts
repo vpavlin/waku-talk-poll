@@ -18,7 +18,7 @@ export function useWaku(instanceId: string | null) {
   
   // TODO 2.1: Get WakuService singleton instance
   // Hint: const wakuService = WakuService.getInstance();
-  const wakuService = null as any; // Replace with actual service
+  const wakuService = null as any; // REPLACE THIS: Get the singleton instance
 
   // Initialize Waku when instanceId is provided
   useEffect(() => {
@@ -32,8 +32,8 @@ export function useWaku(instanceId: string | null) {
 
         console.log('[useWaku] Getting singleton Waku service');
         
-        // Setup health listener
-        // wakuService.onHealthChange(setIsConnected);
+        // TODO: Setup health listener
+        // Hint: wakuService.onHealthChange(setIsConnected);
 
         // TODO 2.2: Initialize Waku node (idempotent - only happens once)
         // Hint: await wakuService.initialize();
@@ -44,7 +44,8 @@ export function useWaku(instanceId: string | null) {
         console.log('[useWaku] Joining channel:', instanceId);
         
         console.log('[useWaku] Channel ready, listeners can now be registered');
-        setIsReady(true);
+        // TODO: Set isReady to true after channel is created
+        // setIsReady(true);
 
       } catch (err) {
         console.error('[useWaku] Error initializing:', err);
@@ -61,7 +62,7 @@ export function useWaku(instanceId: string | null) {
     return () => {
       if (instanceId) {
         console.log('[useWaku] Leaving channel:', instanceId);
-        // Add cleanup code here
+        // TODO: Call wakuService.leaveChannel here
       }
       setIsReady(false);
     };
@@ -72,6 +73,10 @@ export function useWaku(instanceId: string | null) {
   // 1. Check if instanceId exists
   // 2. Call wakuService.sendMessage with the message and callbacks
   // 3. Return the message ID for tracking
+  // 
+  // Example:
+  // if (!instanceId) throw new Error('No instance ID');
+  // return await wakuService.sendMessage(instanceId, message, senderIdRef.current, callbacks);
   const sendMessage = useCallback(async (
     message: WakuMessage,
     callbacks?: {
@@ -81,7 +86,6 @@ export function useWaku(instanceId: string | null) {
       onError?: (error: any) => void;
     }
   ) => {
-    // Implement message sending here
     throw new Error('sendMessage not implemented - see TODO 2.5');
   }, [instanceId, wakuService]);
 
@@ -101,8 +105,7 @@ export function useWaku(instanceId: string | null) {
     // TODO 2.7: Return unsubscribe function from wakuService.onMessage
     // Hint: return wakuService.onMessage(instanceId, listener);
     
-    console.log('[useWaku] Listener registered successfully');
-    return () => {}; // Replace with actual unsubscribe
+    return () => {}; // REPLACE THIS: Return actual unsubscribe function
   }, [isReady, instanceId, wakuService]);
 
   return {

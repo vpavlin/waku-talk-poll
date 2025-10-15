@@ -95,34 +95,29 @@ export class WakuService {
     // TODO 1.1: Create a Waku light node with default bootstrap
     // Hint: Use createLightNode({ defaultBootstrap: true })
     // This creates a browser-optimized node that automatically discovers peers
-    this.node = await createLightNode({ defaultBootstrap: true });
+    // this.node = await createLightNode({ ... });
     
     // TODO 1.2: Define the content topic for message routing
     // Format: /app-name/version/type/encoding
     // Example: `/audience-qa/1/data/proto`
-    const contentTopic = `/audience-qa/1/data/proto`;
+    // const contentTopic = `...`;
     
     // TODO 1.3: Create encoder and decoder for the content topic
     // Hint: this.encoder = this.node.createEncoder({ contentTopic })
+    // Hint: this.decoder = this.node.createDecoder({ contentTopic })
     // These are used to serialize/deserialize messages
-    this.encoder = this.node.createEncoder({ contentTopic });
-    this.decoder = this.node.createDecoder({ contentTopic });
     
     // TODO 1.4: Set up health status listener
     // Listen to 'waku:health' events and update this.isHealthy
     // Notify healthListeners when status changes
-    // Hint: this.node.events.addEventListener('waku:health', ...)
-    this.node.events.addEventListener('waku:health', (event: any) => {
-      const health = event.detail;
-      const wasHealthy = this.isHealthy;
-      this.isHealthy = health === HealthStatus.SufficientlyHealthy;
-      
-      console.log('[Waku] Health status:', health, 'Healthy:', this.isHealthy);
-      
-      if (wasHealthy !== this.isHealthy) {
-        this.healthListeners.forEach(listener => listener(this.isHealthy));
-      }
-    });
+    // Hint: this.node.events.addEventListener('waku:health', (event: any) => {
+    //   const health = event.detail;
+    //   const wasHealthy = this.isHealthy;
+    //   this.isHealthy = health === HealthStatus.SufficientlyHealthy;
+    //   if (wasHealthy !== this.isHealthy) {
+    //     this.healthListeners.forEach(listener => listener(this.isHealthy));
+    //   }
+    // });
     
     console.log('[Waku] Light node initialized successfully');
   }
@@ -163,13 +158,7 @@ export class WakuService {
     // TODO 1.5: Create a ReliableChannel
     // Hint: await ReliableChannel.create(this.node, instanceId, senderId, this.encoder, this.decoder)
     // The channel handles message delivery guarantees and acknowledgments
-    const channel = await ReliableChannel.create(
-      this.node,
-      instanceId,
-      senderId,
-      this.encoder,
-      this.decoder
-    );
+    // const channel = await ReliableChannel.create(...);
 
     // Initialize data structures for this channel
     this.channelListeners.set(instanceId, new Set());
@@ -190,81 +179,6 @@ export class WakuService {
     // });
     
     // Repeat for: 'message-sent', 'message-acknowledged', 'sending-message-irrecoverable-error'
-    
-    // Sending events
-    channel.addEventListener('sending-message', (event: any) => {
-      const messageId = event.detail;
-      this.emitSDSEvent({ type: 'out', event: 'sending-message', timestamp: Date.now(), details: { messageId }, instanceId });
-      
-      const callbacks = this.messageCallbacks.get(instanceId)?.get(messageId);
-      if (callbacks?.onSending) {
-        console.log('[Waku] Sending message:', messageId);
-        callbacks.onSending();
-      }
-    });
-
-    channel.addEventListener('message-sent', (event: any) => {
-      const messageId = event.detail;
-      this.emitSDSEvent({ type: 'out', event: 'message-sent', timestamp: Date.now(), details: { messageId }, instanceId });
-      
-      const callbacks = this.messageCallbacks.get(instanceId)?.get(messageId);
-      if (callbacks?.onSent) {
-        console.log('[Waku] Message sent:', messageId);
-        callbacks.onSent();
-      }
-    });
-
-    // Acknowledgement events
-    channel.addEventListener('message-possibly-acknowledged', (event: any) => {
-      const { messageId, possibleAckCount } = event.detail;
-      this.emitSDSEvent({ 
-        type: 'out', 
-        event: 'message-possibly-acknowledged', 
-        timestamp: Date.now(), 
-        details: { messageId, possibleAckCount }, 
-        instanceId 
-      });
-      console.log('[Waku] Message possibly acknowledged:', messageId, 'count:', possibleAckCount);
-    });
-
-    channel.addEventListener('message-acknowledged', (event: any) => {
-      const messageId = event.detail;
-      this.emitSDSEvent({ type: 'out', event: 'message-acknowledged', timestamp: Date.now(), details: { messageId }, instanceId });
-      
-      const callbacks = this.messageCallbacks.get(instanceId)?.get(messageId);
-      if (callbacks?.onAcknowledged) {
-        console.log('[Waku] Message acknowledged by peers:', messageId);
-        callbacks.onAcknowledged();
-        // Clean up callbacks after acknowledgment
-        this.messageCallbacks.get(instanceId)?.delete(messageId);
-      }
-    });
-
-    // Error events
-    channel.addEventListener('sending-message-irrecoverable-error', (event: any) => {
-      const messageId = event.detail.messageId;
-      this.emitSDSEvent({ type: 'error', event: 'sending-error', timestamp: Date.now(), details: event.detail, instanceId });
-      
-      const callbacks = this.messageCallbacks.get(instanceId)?.get(messageId);
-      if (callbacks?.onError) {
-        console.error('[Waku] Failed to send message:', event.detail.error);
-        callbacks.onError(event.detail.error);
-        // Clean up callbacks after error
-        this.messageCallbacks.get(instanceId)?.delete(messageId);
-      }
-    });
-
-    // Reception events
-    channel.addEventListener('irretrievable-message', (event: any) => {
-      this.emitSDSEvent({ 
-        type: 'error', 
-        event: 'irretrievable-message', 
-        timestamp: Date.now(), 
-        details: event.detail, 
-        instanceId 
-      });
-      console.warn('[Waku] Irretrievable message:', event.detail);
-    });
 
     // TODO 1.7: Set up incoming message listener
     // channel.addEventListener('message-received', (event: any) => {
@@ -280,79 +194,8 @@ export class WakuService {
     //   // TODO 1.14: Mark as processed and notify listeners
     //   // Add to processedIds, save to localStorage, notify all listeners
     // });
-    
-    channel.addEventListener('message-received', (event: any) => {
-      this.emitSDSEvent({ type: 'in', event: 'message-received', timestamp: Date.now(), details: { messageHash: event.detail?.hash }, instanceId });
-      
-      try {
-        const wakuMessage = event.detail;
-        const decoded = DataPacket.decode(wakuMessage.payload) as any;
-        
-        // Create message ID based on actual content (more reliable than Waku hash)
-        const messageId = this.createContentMessageId(
-          decoded.type,
-          decoded.timestamp,
-          decoded.senderId,
-          decoded.payload
-        );
-        
-        // Get processed IDs for this channel (with safe fallback)
-        let processedIds = this.processedMessageIds.get(instanceId);
-        if (!processedIds) {
-          console.warn('[Waku] ProcessedIds not found for instance, initializing:', instanceId);
-          processedIds = new Set();
-          this.processedMessageIds.set(instanceId, processedIds);
-        }
-        
-        // Check for duplicates
-        if (processedIds.has(messageId)) {
-          console.log('[Waku] Duplicate message detected, skipping:', messageId.substring(0, 16));
-          return;
-        }
-        
-        // Mark as processed (in-memory)
-        processedIds.add(messageId);
-        
-        // Only persist certain message types to localStorage
-        // State changes (activation/deactivation) should always be processed fresh
-        const shouldPersist = 
-          decoded.type === MessageType.ANSWER_SUBMITTED || 
-          decoded.type === MessageType.QUESTION_ADDED;
-        
-        if (shouldPersist) {
-          this.saveProcessedIds(instanceId, processedIds);
-        }
-        
-        // Prevent memory leak - keep only recent message IDs
-        if (processedIds.size > this.MAX_PROCESSED_IDS) {
-          const idsArray = Array.from(processedIds);
-          const toRemove = idsArray.slice(0, processedIds.size - this.MAX_PROCESSED_IDS);
-          toRemove.forEach(id => processedIds.delete(id));
-          if (shouldPersist) {
-            this.saveProcessedIds(instanceId, processedIds);
-          }
-        }
-        
-        const message: WakuMessage = {
-          type: decoded.type as MessageType,
-          timestamp: Number(decoded.timestamp),
-          senderId: decoded.senderId as string,
-          payload: JSON.parse(decoded.payload as string)
-        };
-        
-        console.log('[Waku] Message received (ID:', messageId.substring(0, 8), '):', message.type, 'from:', message.senderId);
-        
-        // Notify all listeners for this channel
-        const listeners = this.channelListeners.get(instanceId);
-        if (listeners) {
-          listeners.forEach(listener => listener(message));
-        }
-      } catch (error) {
-        console.error('[Waku] Error decoding message:', error);
-      }
-    });
 
-    this.channels.set(instanceId, channel);
+    // this.channels.set(instanceId, channel);
     console.log(`[Waku] Successfully joined channel: ${instanceId}`);
   }
 
@@ -391,35 +234,20 @@ export class WakuService {
 
     console.log('[Waku] Sending message:', message.type, 'to channel:', instanceId);
 
-    // Notify that we're starting to send
-    callbacks?.onSending?.();
-
     // TODO 1.8: Encode message using Protobuf DataPacket
     // Hint: DataPacket.create({ type, timestamp, senderId, payload: JSON.stringify(...) })
     // Then: DataPacket.encode(protoMessage).finish()
-    const protoMessage = DataPacket.create({
-      type: message.type,
-      timestamp: message.timestamp,
-      senderId: senderId,
-      payload: JSON.stringify(message.payload)
-    });
-
-    const serialized = DataPacket.encode(protoMessage).finish();
+    // const protoMessage = DataPacket.create({ ... });
+    // const serialized = DataPacket.encode(protoMessage).finish();
     
     // TODO 1.9: Send via reliable channel and get message ID
     // Hint: const messageId = channel.send(serialized)
-    const messageId = channel.send(serialized);
+    // const messageId = channel.send(serialized);
 
     // TODO 1.10: Store callbacks for delivery tracking
     // Hint: this.messageCallbacks.get(instanceId)?.set(messageId, callbacks)
-    if (callbacks) {
-      const channelCallbacks = this.messageCallbacks.get(instanceId);
-      if (channelCallbacks) {
-        channelCallbacks.set(messageId, callbacks);
-      }
-    }
-
-    return messageId;
+    
+    throw new Error('sendMessage not implemented - see TODO 1.8-1.10');
   }
 
   /**
