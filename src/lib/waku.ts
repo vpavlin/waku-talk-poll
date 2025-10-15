@@ -93,31 +93,17 @@ export class WakuService {
     console.log('[Waku] Initializing light node...');
     
     // TODO 1.1: Create a Waku light node with default bootstrap
-    // Hint: Use createLightNode({ defaultBootstrap: true })
     // This creates a browser-optimized node that automatically discovers peers
-    // this.node = await createLightNode({ ... });
     
     // TODO 1.2: Define the content topic for message routing
     // Format: /app-name/version/type/encoding
-    // Example: `/audience-qa/1/data/proto`
-    // const contentTopic = `...`;
     
     // TODO 1.3: Create encoder and decoder for the content topic
-    // Hint: this.encoder = this.node.createEncoder({ contentTopic })
-    // Hint: this.decoder = this.node.createDecoder({ contentTopic })
     // These are used to serialize/deserialize messages
     
     // TODO 1.4: Set up health status listener
     // Listen to 'waku:health' events and update this.isHealthy
     // Notify healthListeners when status changes
-    // Hint: this.node.events.addEventListener('waku:health', (event: any) => {
-    //   const health = event.detail;
-    //   const wasHealthy = this.isHealthy;
-    //   this.isHealthy = health === HealthStatus.SufficientlyHealthy;
-    //   if (wasHealthy !== this.isHealthy) {
-    //     this.healthListeners.forEach(listener => listener(this.isHealthy));
-    //   }
-    // });
     
     console.log('[Waku] Light node initialized successfully');
   }
@@ -156,9 +142,7 @@ export class WakuService {
     console.log(`[Waku] Creating channel: ${instanceId}`);
     
     // TODO 1.5: Create a ReliableChannel
-    // Hint: await ReliableChannel.create(this.node, instanceId, senderId, this.encoder, this.decoder)
     // The channel handles message delivery guarantees and acknowledgments
-    // const channel = await ReliableChannel.create(...);
 
     // Initialize data structures for this channel
     this.channelListeners.set(instanceId, new Set());
@@ -170,32 +154,23 @@ export class WakuService {
 
     // TODO 1.6: Set up message delivery event listeners
     // These track the message lifecycle: sending → sent → acknowledged
-    
-    // Example structure (you need to implement):
-    // channel.addEventListener('sending-message', (event: any) => {
-    //   const messageId = event.detail;
-    //   // 1. Emit SDS event for monitoring
-    //   // 2. Call onSending callback if exists
-    // });
-    
-    // Repeat for: 'message-sent', 'message-acknowledged', 'sending-message-irrecoverable-error'
+    // Events to handle:
+    // - 'sending-message': When message starts sending
+    // - 'message-sent': When message is sent to network
+    // - 'message-possibly-acknowledged': Pre-confirmation
+    // - 'message-acknowledged': Full acknowledgment from recipient
+    // - 'sending-message-irrecoverable-error': Send errors
+    // - 'irretrievable-message': Messages that couldn't be retrieved
+    // For each event: emit SDS event and call appropriate callback
 
     // TODO 1.7: Set up incoming message listener
-    // channel.addEventListener('message-received', (event: any) => {
-    //   // TODO 1.11: Decode the Protobuf payload
-    //   // Hint: const decoded = DataPacket.decode(event.detail.payload)
-    //   
-    //   // TODO 1.12: Create content-based message ID for deduplication
-    //   // Hint: Use this.createContentMessageId(decoded.type, decoded.timestamp, ...)
-    //   
-    //   // TODO 1.13: Check for duplicates
-    //   // If already processed, return early to prevent duplicate handling
-    //   
-    //   // TODO 1.14: Mark as processed and notify listeners
-    //   // Add to processedIds, save to localStorage, notify all listeners
-    // });
+    // Handle 'message-received' event:
+    // TODO 1.11: Decode the Protobuf payload
+    // TODO 1.12: Create content-based message ID for deduplication
+    // TODO 1.13: Check for duplicates and skip if already processed
+    // TODO 1.14: Mark as processed, save to localStorage, notify all listeners
 
-    // this.channels.set(instanceId, channel);
+    // TODO: Store the channel in the channels Map
     console.log(`[Waku] Successfully joined channel: ${instanceId}`);
   }
 
@@ -235,17 +210,14 @@ export class WakuService {
     console.log('[Waku] Sending message:', message.type, 'to channel:', instanceId);
 
     // TODO 1.8: Encode message using Protobuf DataPacket
-    // Hint: DataPacket.create({ type, timestamp, senderId, payload: JSON.stringify(...) })
-    // Then: DataPacket.encode(protoMessage).finish()
-    // const protoMessage = DataPacket.create({ ... });
-    // const serialized = DataPacket.encode(protoMessage).finish();
+    // Create a DataPacket with type, timestamp, senderId, and stringified payload
+    // Then encode it to bytes
     
     // TODO 1.9: Send via reliable channel and get message ID
-    // Hint: const messageId = channel.send(serialized)
-    // const messageId = channel.send(serialized);
-
+    // Use channel.send() with the serialized message
+    
     // TODO 1.10: Store callbacks for delivery tracking
-    // Hint: this.messageCallbacks.get(instanceId)?.set(messageId, callbacks)
+    // Save the callbacks in messageCallbacks Map using the messageId
     
     throw new Error('sendMessage not implemented - see TODO 1.8-1.10');
   }
