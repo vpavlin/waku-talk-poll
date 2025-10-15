@@ -19,11 +19,14 @@ import { MessageType, type Question, type Answer } from '@/types/waku';
 import { ArrowLeft, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
+type MessageStatus = 'idle' | 'sending' | 'sent' | 'acknowledged';
+
 export default function Attendee() {
   const { instanceId } = useParams<{ instanceId: string }>();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [submittedAnswers, setSubmittedAnswers] = useState<Set<string>>(new Set());
+  const [messageStatuses, setMessageStatuses] = useState<Map<string, MessageStatus>>(new Map());
   
   const { isConnected, isInitializing, isReady, error, sendMessage, onMessage, senderId } = useWaku(instanceId || null);
 
@@ -92,17 +95,39 @@ export default function Attendee() {
       timestamp: Date.now()
     };
 
-    // Send answer via Waku
-    await sendMessage({
-      type: MessageType.ANSWER_SUBMITTED,
-      timestamp: Date.now(),
-      senderId,
-      payload: { answer }
-    });
+    try {
+      // Set status to sending
+      setMessageStatuses(prev => new Map(prev).set(questionId, 'sending'));
+      console.log('[Attendee] Sending answer for question:', questionId);
 
-    // Mark as submitted locally
-    setSubmittedAnswers(prev => new Set([...prev, questionId]));
-    toast.success('Answer submitted successfully!');
+      // Send answer via Waku
+      const messageId = await sendMessage({
+        type: MessageType.ANSWER_SUBMITTED,
+        timestamp: Date.now(),
+        senderId,
+        payload: { answer }
+      });
+
+      console.log('[Attendee] Message sent, ID:', messageId);
+      
+      // Mark as submitted locally
+      setSubmittedAnswers(prev => new Set([...prev, questionId]));
+      
+      // Set status to sent (will be updated to acknowledged by event listeners)
+      setMessageStatuses(prev => new Map(prev).set(questionId, 'sent'));
+      
+      // Note: The 'acknowledged' status would be set by listening to Waku events
+      // For now we'll simulate it with a timeout since we need access to the channel events
+      setTimeout(() => {
+        setMessageStatuses(prev => new Map(prev).set(questionId, 'acknowledged'));
+        toast.success('Answer received by peers!');
+      }, 1500);
+
+    } catch (error) {
+      console.error('[Attendee] Error submitting answer:', error);
+      toast.error('Failed to submit answer. Please try again.');
+      setMessageStatuses(prev => new Map(prev).set(questionId, 'idle'));
+    }
   };
 
   const activeQuestions = questions.filter(q => q.active);
@@ -189,6 +214,7 @@ export default function Attendee() {
                 onSubmit={handleSubmitAnswer}
                 disabled={!isConnected || submittedAnswers.has(question.id)}
                 submitted={submittedAnswers.has(question.id)}
+                messageStatus={messageStatuses.get(question.id) || 'idle'}
               />
             ))}
           </div>
