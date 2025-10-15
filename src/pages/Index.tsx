@@ -13,9 +13,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { generateInstanceId } from '@/lib/waku';
 import { getInstances, saveInstance } from '@/lib/storage';
-import { UserCog, Users, MessageCircleQuestion, FolderOpen } from 'lucide-react';
+import { UserCog, Users, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { Version } from '@/components/Version';
+import { PulseCheckLogo } from '@/components/PulseCheckLogo';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -59,11 +60,11 @@ const Index = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <MessageCircleQuestion className="h-8 w-8 text-primary" />
+              <PulseCheckLogo className="text-primary" size={32} />
               <div>
-                <h1 className="text-2xl font-bold">Audience Q&A</h1>
+                <h1 className="text-2xl font-bold">PulseCheck</h1>
                 <p className="text-sm text-muted-foreground">
-                  Powered by Waku Reliable Channels
+                  Real-Time Audience Engagement
                 </p>
               </div>
             </div>
@@ -78,10 +79,10 @@ const Index = () => {
           {/* Hero Section */}
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Interactive Workshop Q&A
+              Get the Pulse of Your Audience
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Engage your audience with real-time questions and answers using decentralized p2p communication.
+              Real-time Q&A engagement powered by decentralized p2p communication.
               No servers, no databases, just peer-to-peer magic.
             </p>
           </div>
