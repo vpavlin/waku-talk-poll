@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { saveInstance, saveQuestions, saveAnswers, getQuestions, getAnswers, getInstance } from '@/lib/storage';
 import { Version } from '@/components/Version';
 import { DevConsole } from '@/components/DevConsole';
+import QRCode from 'react-qr-code';
 
 export default function Admin() {
   const { instanceId } = useParams<{ instanceId: string }>();
@@ -264,21 +265,35 @@ export default function Admin() {
         <Card className="mb-6 shadow-lg">
           <CardHeader>
             <CardTitle>Instance ID</CardTitle>
-            <CardDescription>Share this ID with attendees</CardDescription>
+            <CardDescription>Share this ID with attendees or scan the QR code</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-3">
-              <code className="flex-1 px-4 py-3 bg-muted rounded-lg text-lg font-mono font-bold">
-                {instanceId}
-              </code>
-              <Button
-                onClick={handleCopyInstanceId}
-                variant="outline"
-                size="icon"
-                className="h-12 w-12"
-              >
-                {copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
-              </Button>
+            <div className="flex items-start gap-6">
+              <div className="flex-1 space-y-3">
+                <div className="flex items-center gap-3">
+                  <code className="flex-1 px-4 py-3 bg-muted rounded-lg text-lg font-mono font-bold">
+                    {instanceId}
+                  </code>
+                  <Button
+                    onClick={handleCopyInstanceId}
+                    variant="outline"
+                    size="icon"
+                    className="h-12 w-12"
+                  >
+                    {copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Attendees can join at: <code className="text-xs bg-muted px-2 py-1 rounded">{window.location.origin}/attendee/{instanceId}</code>
+                </p>
+              </div>
+              <div className="flex-shrink-0 p-4 bg-white rounded-lg">
+                <QRCode
+                  value={`${window.location.origin}/attendee/${instanceId}`}
+                  size={128}
+                  level="M"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
